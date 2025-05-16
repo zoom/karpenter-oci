@@ -1,0 +1,252 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "karpenter.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "karpenter.labels" . | nindent 4 }}
+  {{- with .Values.additionalAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "karpenter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "karpenter.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "karpenter.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8}}
+      {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+        - name: controller
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          image: {{ include "karpenter.controller.image" . }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: KUBERNETES_MIN_VERSION
+              value: "1.19.0-0"
+            - name: KARPENTER_SERVICE
+              value: {{ include "karpenter.fullname" . }}
+          {{- if .Values.webhook.enabled }}
+            - name: WEBHOOK_PORT
+              value: "{{ .Values.webhook.port }}"
+            - name: WEBHOOK_METRICS_PORT
+              value: "{{ .Values.webhook.metrics.port }}"
+          {{- end }}
+            - name: DISABLE_WEBHOOK
+              value: "{{ not .Values.webhook.enabled }}"
+          {{- with .Values.logLevel }}
+            - name: LOG_LEVEL
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.logOutputPaths }}
+            - name: LOG_OUTPUT_PATHS
+              value: "{{ join "," . }}"
+          {{- end }}
+          {{- with .Values.logErrorOutputPaths }}
+            - name: LOG_ERROR_OUTPUT_PATHS
+              value: "{{ join "," . }}"
+          {{- end }}
+            - name: METRICS_PORT
+              value: "{{ .Values.controller.metrics.port }}"
+            - name: HEALTH_PROBE_PORT
+              value: "{{ .Values.controller.healthProbe.port }}"
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MEMORY_LIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: controller
+                  divisor: "0"
+                  resource: limits.memory
+            - name: FEATURE_GATES
+              value: "SpotToSpotConsolidation={{ .Values.settings.featureGates.spotToSpotConsolidation }}"
+          {{- with .Values.settings.batchMaxDuration }}
+            - name: BATCH_MAX_DURATION
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.batchIdleDuration }}
+            - name: BATCH_IDLE_DURATION
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.clusterCABundle }}
+            - name: CLUSTER_CA_BUNDLE
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.clusterName }}
+            - name: CLUSTER_NAME
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.clusterEndpoint }}
+            - name: CLUSTER_ENDPOINT
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.clusterDns }}
+            - name: CLUSTER_DNS
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.vmMemoryOverheadPercent }}
+            - name: VM_MEMORY_OVERHEAD_PERCENT
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.compartmentId }}
+            - name: COMPARTMENT_ID
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.ociResourcePrincipalVersion }}
+            - name: OCI_RESOURCE_PRINCIPAL_VERSION
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.ociResourcePrincipalRegion }}
+            - name: OCI_RESOURCE_PRINCIPAL_REGION
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.ociAuthMethods }}
+            - name: OCI_AUTH_METHODS
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.flexCpuConstrainList }}
+            - name: FLEX_CPU_CONSTRAIN_LIST
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.flexCpuMemRatios }}
+            - name: FLEX_CPU_MEM_RATIOS
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.settings.tagNamespace }}
+            - name: TAG_NAMESPACE
+              value: "{{ . }}"
+          {{- end }}
+          {{- with .Values.controller.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.controller.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http-metrics
+              containerPort: {{ .Values.controller.metrics.port }}
+              protocol: TCP
+          {{- if .Values.webhook.enabled }}
+            - name: webhook-metrics
+              containerPort: {{ .Values.webhook.metrics.port }}
+              protocol: TCP
+            - name: https-webhook
+              containerPort: {{ .Values.webhook.port }}
+              protocol: TCP
+          {{- end }}
+            - name: http
+              containerPort: {{ .Values.controller.healthProbe.port }}
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            initialDelaySeconds: 5
+            timeoutSeconds: 30
+            httpGet:
+              path: /readyz
+              port: http
+          {{- with .Values.controller.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- if .Values.controller.extraVolumeMounts }}
+          volumeMounts:
+          {{- with .Values.controller.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.controller.sidecarContainer }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if and (.Values.controller.sidecarContainer) (or .Values.controller.extraVolumeMounts .Values.controller.sidecarVolumeMounts) }}
+          volumeMounts:
+          {{- with .Values.controller.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.controller.sidecarVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      # The template below patches the .Values.affinity to add a default label selector where not specificed
+      {{- $_ := include "karpenter.patchAffinity" $ }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      # The template below patches the .Values.topologySpreadConstraints to add a default label selector where not specificed
+      {{- $_ := include "karpenter.patchTopologySpreadConstraints" $ }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- if .Values.extraVolumes }}
+      volumes:
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
