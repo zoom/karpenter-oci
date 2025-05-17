@@ -36,27 +36,26 @@ var _ = Describe("NodeClass Image Status Controller", func() {
 		}}})
 	})
 	It("should resolve a valid AMI selector", func() {
-		nodeClass.Spec.Image = &v1alpha1.Image{
+		nodeClass.Spec.ImageSelector = []v1alpha1.ImageSelectorTerm{{
 			Name:          "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679",
-			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
-		}
+			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa"}}
 		ExpectApplied(ctx, env.Client, nodeClass)
 		ExpectObjectReconciled(ctx, env.Client, statusController, nodeClass)
 		nodeClass = ExpectExists(ctx, env.Client, nodeClass)
-		Expect(nodeClass.Status.Image).To(Equal(
-			&v1alpha1.Image{
+		Expect(nodeClass.Status.Images).To(Equal(
+			[]*v1alpha1.Image{{
 				Id:            "ocid1.image.oc1..aaaaaaaa",
 				Name:          "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679",
 				CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+			},
 			},
 		))
 		Expect(nodeClass.StatusConditions().IsTrue(v1alpha1.ConditionTypeImageReady)).To(BeTrue())
 	})
 	It("should get error when resolving images and have status condition set to false", func() {
-		nodeClass.Spec.Image = &v1alpha1.Image{
+		nodeClass.Spec.ImageSelector = []v1alpha1.ImageSelectorTerm{{
 			Name:          "fake-image-name",
-			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
-		}
+			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa"}}
 		ExpectApplied(ctx, env.Client, nodeClass)
 		nodeClass = ExpectExists(ctx, env.Client, nodeClass)
 		Expect(nodeClass.StatusConditions().IsTrue(v1alpha1.ConditionTypeImageReady)).To(BeFalse())

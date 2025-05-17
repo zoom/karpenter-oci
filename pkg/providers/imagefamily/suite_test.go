@@ -70,7 +70,7 @@ var _ = Describe("AMIProvider", func() {
 	BeforeEach(func() {
 		nodeClass = test.OciNodeClass(v1alpha1.OciNodeClass{
 			Spec: v1alpha1.OciNodeClassSpec{
-				Image: &v1alpha1.Image{Name: "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679"},
+				ImageSelector: []v1alpha1.ImageSelectorTerm{{Name: "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679"}},
 			},
 		})
 	})

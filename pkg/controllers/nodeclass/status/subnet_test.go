@@ -69,7 +69,9 @@ var _ = Describe("NodeClass Subnet Status Controller", func() {
 		Expect(nodeClass.StatusConditions().IsTrue(v1alpha1.ConditionTypeSubnetsReady)).To(BeTrue())
 	})
 	It("Should not resolve a invalid selectors for Subnet", func() {
-		nodeClass.Spec.SubnetName = "fake_subnet_name"
+		nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{{
+			Name: "fake_subnet_name",
+		}}
 		ExpectApplied(ctx, env.Client, nodeClass)
 		ExpectObjectReconciled(ctx, env.Client, statusController, nodeClass)
 		nodeClass = ExpectExists(ctx, env.Client, nodeClass)

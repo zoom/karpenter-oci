@@ -35,7 +35,7 @@ func (sg *SecurityGroup) Reconcile(ctx context.Context, nodeClass *v1alpha1.OciN
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("getting security groups, %w", err)
 	}
-	if len(securityGroups) == 0 && len(nodeClass.Spec.SecurityGroupNames) > 0 {
+	if len(securityGroups) == 0 && len(nodeClass.Spec.SecurityGroupSelector) > 0 {
 		nodeClass.Status.SecurityGroups = nil
 		nodeClass.StatusConditions().SetFalse(v1alpha1.ConditionTypeSecurityGroupsReady, "SecurityGroupsNotFound", "SecurityGroupSelector did not match any SecurityGroups")
 		return reconcile.Result{}, nil

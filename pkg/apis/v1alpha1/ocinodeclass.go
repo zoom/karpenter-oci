@@ -29,15 +29,15 @@ const (
 )
 
 type OciNodeClassSpec struct {
-	Image              *Image            `json:"image"`
-	VcnId              string            `json:"vcnId"`
-	SubnetName         string            `json:"subnetName"`
-	SecurityGroupNames []string          `json:"securityGroupNames,omitempty"`
-	UserData           *string           `json:"userData,omitempty"`
-	PreInstallScript   *string           `json:"preInstallScript,omitempty"`
-	MetaData           map[string]string `json:"metaData,omitempty"`
-	ImageFamily        string            `json:"imageFamily"`
-	Tags               map[string]string `json:"tags,omitempty"`
+	VcnId                 string                      `json:"vcnId"`
+	ImageSelector         []ImageSelectorTerm         `json:"imageSelector"`
+	SubnetSelector        []SubnetSelectorTerm        `json:"subnetSelector"`
+	SecurityGroupSelector []SecurityGroupSelectorTerm `json:"securityGroupSelector,omitempty"`
+	UserData              *string                     `json:"userData,omitempty"`
+	PreInstallScript      *string                     `json:"preInstallScript,omitempty"`
+	MetaData              map[string]string           `json:"metaData,omitempty"`
+	ImageFamily           string                      `json:"imageFamily"`
+	Tags                  map[string]string           `json:"tags,omitempty"`
 	// Kubelet defines args to be used when configuring kubelet on provisioned nodes.
 	// They are a subset of the upstream types, recognizing not all options may be supported.
 	// Wherever possible, the types and names should reflect the upstream kubelet types.
@@ -62,10 +62,10 @@ type OciNodeClassStatus struct {
 	// cluster under the subnet selectors.
 	// +optional
 	Subnets []*Subnet `json:"subnets,omitempty"`
-	// Image contains the current image detail that are available to the
+	// Images contains the current images detail that are available to the
 	// cluster under the image spec.
 	// +optional
-	Image *Image `json:"image,omitempty"`
+	Images []*Image `json:"images,omitempty"`
 	// SecurityGroups contains the current security detail that are available to the
 	// cluster under the security group spec.
 	// +optional
@@ -87,6 +87,22 @@ type Image struct {
 }
 
 type SecurityGroup struct {
+	Id   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type ImageSelectorTerm struct {
+	Id            string `json:"id,omitempty"`
+	Name          string `json:"name,omitempty"`
+	CompartmentId string `json:"compartmentId,omitempty"`
+}
+
+type SubnetSelectorTerm struct {
+	Id   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type SecurityGroupSelectorTerm struct {
 	Id   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 }

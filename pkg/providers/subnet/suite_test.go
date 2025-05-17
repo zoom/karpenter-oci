@@ -67,7 +67,9 @@ var _ = BeforeEach(func() {
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
 	ctx = options.ToContext(ctx, test.Options())
 	nodeClass = test.OciNodeClass(v1alpha1.OciNodeClass{
-		Spec: v1alpha1.OciNodeClassSpec{SubnetName: "private-1"},
+		Spec: v1alpha1.OciNodeClassSpec{SubnetSelector: []v1alpha1.SubnetSelectorTerm{{
+			Name: "private-1",
+		}}},
 	})
 	ociEnv.Reset()
 })
@@ -79,7 +81,9 @@ var _ = AfterEach(func() {
 var _ = Describe("SubnetProvider", func() {
 	Context("List", func() {
 		It("should discover subnet by name", func() {
-			nodeClass.Spec.SubnetName = "private-1"
+			nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{{
+				Name: "private-1",
+			}}
 			subnets, err := ociEnv.SubnetProvider.List(ctx, nodeClass)
 			Expect(err).To(BeNil())
 			ExpectConsistsOfSubnets([]core.Subnet{
@@ -98,7 +102,9 @@ var _ = Describe("SubnetProvider", func() {
 		It("should resolve subnets from cache that are filtered by name", func() {
 			expectedSubnets := ociEnv.VcnCli.ListSubnetsOutput.Clone().Items
 			for _, subnet := range expectedSubnets {
-				nodeClass.Spec.SubnetName = lo.FromPtr[string](subnet.DisplayName)
+				nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{{
+					Name: lo.FromPtr[string](subnet.DisplayName),
+				}}
 				// Call list to request from aws and store in the cache
 				_, err := ociEnv.SubnetProvider.List(ctx, nodeClass)
 				Expect(err).To(BeNil())

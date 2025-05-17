@@ -38,23 +38,28 @@ func NewProvider(client api.ComputeClient, cache *cache.Cache) *Provider {
 }
 
 func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) ([]core.Image, error) {
-	hash, err := hashstructure.Hash([]string{nodeclass.Spec.Image.CompartmentId, nodeclass.Spec.Image.Name}, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
+	hash, err := hashstructure.Hash(nodeclass.Spec.ImageSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
 		return nil, err
 	}
 	if images, ok := p.cache.Get(fmt.Sprintf("%d", hash)); ok {
 		return images.([]core.Image), nil
 	}
-	req := core.ListImagesRequest{
-		CompartmentId:  common.String(nodeclass.Spec.Image.CompartmentId),
-		DisplayName:    common.String(nodeclass.Spec.Image.Name),
-		LifecycleState: core.ImageLifecycleStateAvailable}
+	images := make([]core.Image, 0)
+	for _, selector := range nodeclass.Spec.ImageSelector {
+		req := core.ListImagesRequest{
+			CompartmentId:  common.String(selector.CompartmentId),
+			DisplayName:    common.String(selector.Name),
+			LifecycleState: core.ImageLifecycleStateAvailable}
 
-	// Send the request using the service client
-	resp, err := p.client.ListImages(ctx, req)
-	if err != nil {
-		return nil, err
+		// Send the request using the service client
+		resp, err := p.client.ListImages(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		images = append(images, resp.Items...)
 	}
-	p.cache.SetDefault(fmt.Sprintf("%d", hash), resp.Items)
-	return resp.Items, nil
+	// todo sort and unique
+	p.cache.SetDefault(fmt.Sprintf("%d", hash), images)
+	return images, nil
 }

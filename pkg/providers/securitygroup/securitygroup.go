@@ -16,13 +16,14 @@ package securitygroup
 
 import (
 	"context"
+	"fmt"
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/patrickmn/go-cache"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
-	"strings"
 	"sync"
 )
 
@@ -39,19 +40,22 @@ func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.NetworkSecurityGroup, error) {
 	p.Lock()
 	defer p.Unlock()
-	if len(nodeClass.Spec.SecurityGroupNames) == 0 {
+	if len(nodeClass.Spec.SecurityGroupSelector) == 0 {
 		return []core.NetworkSecurityGroup{}, nil
 	}
-	cacheKey := nodeClass.Spec.VcnId + ":" + strings.Join(nodeClass.Spec.SecurityGroupNames, ",")
-	if sgs, ok := p.cache.Get(cacheKey); ok {
+	hash, err := hashstructure.Hash(nodeClass.Spec.SecurityGroupSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
+	if err != nil {
+		return nil, err
+	}
+	if sgs, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
 		return sgs.([]core.NetworkSecurityGroup), nil
 	}
 	// Create a request and dependent object(s).
 	sgs := make([]core.NetworkSecurityGroup, 0)
-	for _, displayName := range nodeClass.Spec.SecurityGroupNames {
+	for _, selector := range nodeClass.Spec.SecurityGroupSelector {
 		req := core.ListNetworkSecurityGroupsRequest{CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
 			VcnId:          common.String(nodeClass.Spec.VcnId),
-			DisplayName:    common.String(displayName),
+			DisplayName:    common.String(selector.Name),
 			LifecycleState: core.NetworkSecurityGroupLifecycleStateAvailable,
 		}
 		// Send the request using the service client
@@ -61,6 +65,6 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 		}
 		sgs = append(sgs, resp.Items...)
 	}
-	p.cache.SetDefault(cacheKey, sgs)
+	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), sgs)
 	return sgs, nil
 }

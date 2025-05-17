@@ -75,8 +75,10 @@ var _ = Describe("NodeClass Hash Controller", func() {
 	BeforeEach(func() {
 		nodeClass = test.OciNodeClass(v1alpha1.OciNodeClass{
 			Spec: v1alpha1.OciNodeClassSpec{
-				SubnetName: "private-1",
-				Image:      &v1alpha1.Image{Name: "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679"},
+				SubnetSelector: []v1alpha1.SubnetSelectorTerm{{
+					Name: "private-1",
+				}},
+				ImageSelector: []v1alpha1.ImageSelectorTerm{{Name: "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679"}},
 			},
 		})
 		nodePool = coretest.NodePool(karpv1.NodePool{

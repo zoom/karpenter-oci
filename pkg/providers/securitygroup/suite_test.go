@@ -67,7 +67,10 @@ var _ = BeforeEach(func() {
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
 	ctx = options.ToContext(ctx, test.Options())
 	nodeClass = test.OciNodeClass(v1alpha1.OciNodeClass{
-		Spec: v1alpha1.OciNodeClassSpec{SecurityGroupNames: []string{"securityGroup-test1", "securityGroup-test2", "securityGroup-test3"}},
+		Spec: v1alpha1.OciNodeClassSpec{SecurityGroupSelector: []v1alpha1.SecurityGroupSelectorTerm{
+			{Name: "securityGroup-test1"},
+			{Name: "securityGroup-test2"},
+			{Name: "securityGroup-test3"}}},
 	})
 	ociEnv.Reset()
 })
@@ -78,7 +81,9 @@ var _ = AfterEach(func() {
 
 var _ = Describe("SecurityGroupProvider", func() {
 	It("should discover security groups by names", func() {
-		nodeClass.Spec.SecurityGroupNames = []string{"securityGroup-test2", "securityGroup-test3"}
+		nodeClass.Spec.SecurityGroupSelector = []v1alpha1.SecurityGroupSelectorTerm{
+			{Name: "securityGroup-test2"},
+			{Name: "securityGroup-test3"}}
 		securityGroups, err := ociEnv.SecurityGroupProvider.List(ctx, nodeClass)
 		Expect(err).To(BeNil())
 		ExpectConsistsOfSecurityGroups([]core.NetworkSecurityGroup{
@@ -96,7 +101,8 @@ var _ = Describe("SecurityGroupProvider", func() {
 		It("should resolve security groups from cache that are filtered by name", func() {
 			expectedSecurityGroups := ociEnv.VcnCli.ListSecurityGroupOutput.Clone().Items
 			for _, sg := range expectedSecurityGroups {
-				nodeClass.Spec.SecurityGroupNames = []string{utils.ToString(sg.DisplayName)}
+				nodeClass.Spec.SecurityGroupSelector = []v1alpha1.SecurityGroupSelectorTerm{
+					{Name: utils.ToString(sg.DisplayName)}}
 				// Call list to request from oci and store in the cache
 				_, err := ociEnv.SecurityGroupProvider.List(ctx, nodeClass)
 				Expect(err).To(BeNil())

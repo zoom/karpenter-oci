@@ -58,7 +58,7 @@ setting details
 | clusterEndpoint            | api server private endpoint                                                                                                                |                              |
 | clusterDns                 | IP addresses for the cluster DNS server, general is core dns ip                                                                            |                              |
 | compartmentId              | the compartment id or your worker nodes                                                                                                    |                              |
-| ociResourcePrincipalRegion | the region your cluster belong to, refer [issue](https://github.com/oracle/oci-go-sdk/issues/489                                           |                              |
+| ociResourcePrincipalRegion | the region your cluster belong to, refer [issue](https://github.com/oracle/oci-go-sdk/issues/489)                                          |                              |
 | ociAuthMethods             | API_KEY, OKE, SESSION, INSTANCE_PRINCIPAL                                                                                                  | OKE                          |
 | flexCpuConstrainList       | to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu                                 | "1,2,4,8,16,32,48,64,96,128" |
 | flexCpuMemRatios           | the ratios of vcpu and mem, eg. FLEX_CPU_MEM_RATIOS=2,4, if create flex instance with 2 cores(1 ocpu), mem should be 4Gi or 8Gi            | "2,4,8"                      |
@@ -76,7 +76,7 @@ nodepool use to specify the disruption strategy, cpu and memory limits and requi
 | karpenter.k8s.oracle/instance-gpu        | the gpu card count of the instance shape                                                                              | 1                   |
 | karpenter.k8s.oracle/is-flexible         | the instance shape is flexible or not                                                                                 | "true"              |
 
-[example](pkg/apis/crd/sample/nodepool_sample.yaml)
+[example](docs/sample/nodepool_sample.yaml)
 ```yaml
 apiVersion: karpenter.sh/v1
 kind: NodePool
@@ -129,21 +129,21 @@ the ocinodeclass is used for config the oracle cloud related resource, like OS i
 |--------------------------------|----------------------------------------------------------------------------------------------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------|
 | bootConfig.bootVolumeSizeInGBs | The size of the boot volume in GBs. Minimum value is 50 GB and maximum value is 32,768 GB (32 TB).                         | yes      | 100                                                                                                                  |
 | bootConfig.bootVolumeVpusPerGB | The number of volume performance units (VPUs) that will be applied to this volume per GB                                   | yes      | 10                                                                                                                   |
-| image.compartmentId            | the compartment id of the image                                                                                            | yes      | ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq                                  |
-| image.name                     | the image name                                                                                                             | yes      | Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760                                                                        |
+| imageSelector[i].compartmentId | the compartment id of the image                                                                                            | yes      | ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq                                  |
+| imageSelector[i].name          | the image name                                                                                                             | yes      | Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760                                                                        |
 | launchOptions                  | LaunchOptions Options for tuning the compatibility and performance of VM shapes                                            | no       | [detail](https://docs.oracle.com/en-us/iaas/tools/python/2.150.3/api/core/models/oci.core.models.LaunchOptions.html) |
 | blockDevices                   | The details of the volume to create for CreateVolume operation.                                                            | no       | `sizeInGBs: 100` `vpusPerGB: 10`                                                                                     |
 | imageFamily                    | support OracleOKELinux and Ubuntu2204, for OKE cluster use `OracleOKELinux` and for self-managed cluster use `Ubuntu2204`  | yes      | OracleOKELinux                                                                                                       |
 | vcnId                          | the vcnId of the cluster                                                                                                   | yes      |                                                                                                                      |
-| subnetName                     | the name of the subnet which you want to create the worker nodes instance in                                               | yes      | oke-nodesubnet-quick-test                                                                                            |
-| securityGroupNames             | the security groups you want to attach to the instance                                                                     | no       |                                                                                                                      |
+| subnetSelector                 | the name of the subnet which you want to create the worker nodes instance in                                               | yes      | oke-nodesubnet-quick-test                                                                                            |
+| securityGroupSelector          | the security groups you want to attach to the instance                                                                     | no       |                                                                                                                      |
 | tags                           | the tags you want to attach to the instance                                                                                | no       |                                                                                                                      |
 | metaData                       | specify for native cni cluster                                                                                             | no       | `{"oke-native-pod-networking":"true"}`                                                                               |
 | userData                       | customer userdata you want to run in the cloud-init script, it will execute before the kubelet start                       | no       |                                                                                                                      |
 | kubelet                        | customer kubelet config                                                                                                    | no       | [KubeletConfiguration](pkg/apis/v1alpha1/ocinodeclass.go)                                                            |
 
 - if your cluster use flannel as the cni, you can refer:
-[example](pkg/apis/crd/sample/oke_ocinodeclasses_sample.yaml)
+[example](docs/sample/oke_ocinodeclasses_sample.yaml)
 ```yaml
 apiVersion: karpenter.k8s.oracle/v1alpha1
 kind: OciNodeClass
@@ -153,9 +153,9 @@ spec:
   bootConfig:
     bootVolumeSizeInGBs: 100
     bootVolumeVpusPerGB: 10
-  image:
-    compartmentId: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
-    name: Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760
+  imageSelector:
+    - name: Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760
+      compartmentId: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
   imageFamily: OracleOKELinux
   kubelet:
     evictionHard:
@@ -166,10 +166,11 @@ spec:
       nodefs.inodesFree: 5%
     systemReserved:
       memory: 100Mi
-  subnetName: {{ .subnetName }}
+  subnetSelector: 
+    - name: {{ .subnetName }}
   vcnId: {{ .vcnId }}
 ```
-- if your cluster use the native cni, you should set `oke-native-pod-networking` in the metadata as `true`, you can refer: [example](pkg/apis/crd/sample/oke_ocinodeclasses_native_cni_sample.yaml)
+- if your cluster use the native cni, you should set `oke-native-pod-networking` in the metadata as `true`, you can refer: [example](docs/sample/oke_ocinodeclasses_native_cni_sample.yaml)
 ```yaml
 apiVersion: karpenter.k8s.oracle/v1alpha1
 kind: OciNodeClass
@@ -179,9 +180,9 @@ spec:
   bootConfig:
     bootVolumeSizeInGBs: 100
     bootVolumeVpusPerGB: 10
-  image:
-    compartmentId: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
-    name: Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760
+  imageSelector:
+    - name: Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760
+      compartmentId: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
   imageFamily: OracleOKELinux
   metaData:
     oke-native-pod-networking: "true"
@@ -194,7 +195,8 @@ spec:
       nodefs.inodesFree: 5%
     systemReserved:
       memory: 100Mi
-  subnetName: {{ .subnetName }}
+  subnetSelector: 
+    - name: {{ .subnetName }}
   vcnId: {{ .vcnId }}
 ```
 

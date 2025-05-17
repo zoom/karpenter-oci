@@ -63,7 +63,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return nil, err
 	}
 	if len(subnets) == 0 {
-		return nil, fmt.Errorf("no subnets found for vcn: %s, name: %s", nodeClass.Spec.VcnId, nodeClass.Spec.SubnetName)
+		return nil, fmt.Errorf("no subnets found for vcn: %s, selector: %v", nodeClass.Spec.VcnId, nodeClass.Spec.SubnetSelector)
 	}
 	sgs, err := p.securityGroupProvider.List(ctx, nodeClass)
 	if err != nil {

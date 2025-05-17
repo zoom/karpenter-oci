@@ -73,17 +73,19 @@ spec:
                     - bootVolumeSizeInGBs
                     - bootVolumeVpusPerGB
                   type: object
-                image:
-                  properties:
-                    compartmentId:
-                      type: string
-                    id:
-                      type: string
-                    name:
-                      type: string
-                  type: object
                 imageFamily:
                   type: string
+                imageSelector:
+                  items:
+                    properties:
+                      compartmentId:
+                        type: string
+                      id:
+                        type: string
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 kubelet:
                   description: |-
                     Kubelet defines args to be used when configuring kubelet on provisioned nodes.
@@ -248,12 +250,24 @@ spec:
                   type: object
                 preInstallScript:
                   type: string
-                securityGroupNames:
+                securityGroupSelector:
                   items:
-                    type: string
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                    type: object
                   type: array
-                subnetName:
-                  type: string
+                subnetSelector:
+                  items:
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 tags:
                   additionalProperties:
                     type: string
@@ -264,9 +278,9 @@ spec:
                   type: string
               required:
                 - bootConfig
-                - image
                 - imageFamily
-                - subnetName
+                - imageSelector
+                - subnetSelector
                 - vcnId
               type: object
             status:
@@ -327,18 +341,20 @@ spec:
                       - type
                     type: object
                   type: array
-                image:
+                images:
                   description: |-
-                    Image contains the current image detail that are available to the
+                    Images contains the current images detail that are available to the
                     cluster under the image spec.
-                  properties:
-                    compartmentId:
-                      type: string
-                    id:
-                      type: string
-                    name:
-                      type: string
-                  type: object
+                  items:
+                    properties:
+                      compartmentId:
+                        type: string
+                      id:
+                        type: string
+                      name:
+                        type: string
+                    type: object
+                  type: array
                 securityGroups:
                   description: |-
                     SecurityGroups contains the current security detail that are available to the

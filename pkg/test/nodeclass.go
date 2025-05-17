@@ -35,16 +35,17 @@ func OciNodeClass(overrides ...v1alpha1.OciNodeClass) *v1alpha1.OciNodeClass {
 			Name: "test",
 		},
 		Spec: v1alpha1.OciNodeClassSpec{
-			Image: &v1alpha1.Image{
-				Name:          "ubuntu",
-				CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
-			},
-			VcnId:              "vcn_1",
-			SecurityGroupNames: []string{"securityGroup-test1", "securityGroup-test2"},
-			SubnetName:         "private-1",
-			UserData:           common.String("#!/bin/bash"),
-			ImageFamily:        v1alpha1.Ubuntu2204ImageFamily,
-			Tags:               map[string]string{"test_key": "test_val"},
+			ImageSelector: []v1alpha1.ImageSelectorTerm{{Name: "ubuntu", CompartmentId: "ocid1.compartment.oc1..aaaaaaaa"}},
+			VcnId:         "vcn_1",
+			SecurityGroupSelector: []v1alpha1.SecurityGroupSelectorTerm{
+				{Name: "securityGroup-test1"},
+				{Name: "securityGroup-test2"}},
+			SubnetSelector: []v1alpha1.SubnetSelectorTerm{{
+				Name: "private-1",
+			}},
+			UserData:    common.String("#!/bin/bash"),
+			ImageFamily: v1alpha1.Ubuntu2204ImageFamily,
+			Tags:        map[string]string{"test_key": "test_val"},
 			BootConfig: &v1alpha1.BootConfig{
 				BootVolumeSizeInGBs: 100,
 				BootVolumeVpusPerGB: 10,

@@ -16,6 +16,8 @@ package subnet
 
 import (
 	"context"
+	"fmt"
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/patrickmn/go-cache"
@@ -38,21 +40,30 @@ func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.Subnet, error) {
 	p.Lock()
 	defer p.Unlock()
-	if subnets, ok := p.cache.Get(nodeClass.Spec.VcnId + ":" + nodeClass.Spec.SubnetName); ok {
-		return subnets.([]core.Subnet), nil
-	}
-	// Create a request and dependent object(s).
-	req := core.ListSubnetsRequest{CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
-		VcnId:          common.String(nodeClass.Spec.VcnId),
-		DisplayName:    common.String(nodeClass.Spec.SubnetName),
-		LifecycleState: core.SubnetLifecycleStateAvailable,
-	}
-
-	// Send the request using the service client
-	resp, err := p.client.ListSubnets(ctx, req)
+	hash, err := hashstructure.Hash(nodeClass.Spec.SubnetSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
 		return nil, err
 	}
-	p.cache.SetDefault(nodeClass.Spec.VcnId+":"+nodeClass.Spec.SubnetName, resp.Items)
-	return resp.Items, nil
+	if subnets, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
+		return subnets.([]core.Subnet), nil
+	}
+	subnets := make([]core.Subnet, 0)
+	for _, selector := range nodeClass.Spec.SubnetSelector {
+		// Create a request and dependent object(s).
+		req := core.ListSubnetsRequest{CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
+			VcnId:          common.String(nodeClass.Spec.VcnId),
+			DisplayName:    common.String(selector.Name),
+			LifecycleState: core.SubnetLifecycleStateAvailable,
+		}
+
+		// Send the request using the service client
+		resp, err := p.client.ListSubnets(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		subnets = append(subnets, resp.Items...)
+	}
+	// todo unique and sort
+	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), subnets)
+	return subnets, nil
 }

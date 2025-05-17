@@ -36,18 +36,18 @@ func (i *Image) Reconcile(ctx context.Context, nodeClass *v1alpha1.OciNodeClass)
 		return reconcile.Result{}, fmt.Errorf("getting amis, %w", err)
 	}
 	if len(images) == 0 {
-		nodeClass.Status.Image = nil
+		nodeClass.Status.Images = []*v1alpha1.Image{}
 		nodeClass.StatusConditions().SetFalse(v1alpha1.ConditionTypeImageReady, "ImageNotFound", "Image spec did not match any images")
 		return reconcile.Result{}, nil
 	}
 	// todo filter the image with the arch requirement, like amd64 and arm64
-	nodeClass.Status.Image = lo.Map(images, func(image core.Image, _ int) *v1alpha1.Image {
+	nodeClass.Status.Images = lo.Map(images, func(image core.Image, _ int) *v1alpha1.Image {
 		return &v1alpha1.Image{
 			Id:            utils.ToString(image.Id),
 			Name:          utils.ToString(image.DisplayName),
 			CompartmentId: utils.ToString(image.CompartmentId),
 		}
-	})[0]
+	})
 	nodeClass.StatusConditions().SetTrue(v1alpha1.ConditionTypeImageReady)
 	return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 }
