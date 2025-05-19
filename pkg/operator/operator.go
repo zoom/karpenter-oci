@@ -34,6 +34,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/providers/instance"
 	"github.com/zoom/karpenter-oci/pkg/providers/instancetype"
 	"github.com/zoom/karpenter-oci/pkg/providers/launchtemplate"
+	"github.com/zoom/karpenter-oci/pkg/providers/pricing"
 	"github.com/zoom/karpenter-oci/pkg/providers/securitygroup"
 	"github.com/zoom/karpenter-oci/pkg/providers/subnet"
 	"github.com/zoom/karpenter-oci/pkg/utils"
@@ -94,6 +95,12 @@ func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.
 	})
 	options.ToContext(ctx, option)
 
+	// price list syncer
+	priceSyncer := pricing.NewPriceListSyncer(option.PriceEndpoint, option.PriceSyncPeriod, option.UseLocalPriceList)
+	if !option.UseLocalPriceList {
+		lo.Must0(priceSyncer.Start(), "failed to sync price list")
+	}
+
 	region := lo.Must(configProvider.Region())
 	cmpClient := lo.Must(core.NewComputeClientWithConfigurationProvider(configProvider))
 	netClient := lo.Must(core.NewVirtualNetworkClientWithConfigurationProvider(configProvider))
@@ -104,7 +111,7 @@ func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.
 	launchProvider := launchtemplate.NewDefaultProvider(imageResolver, lo.Must(GetCABundle(ctx, operator.GetConfig())), options.FromContext(ctx).ClusterEndpoint, options.FromContext(ctx).BootStrapToken)
 	unavailableOfferCache := ocicache.NewUnavailableOfferings()
 	instanceProvider := instance.NewProvider(cmpClient, subnetProvider, sgProvider, launchProvider, unavailableOfferCache)
-	instancetypeProvider := instancetype.NewProvider(region, cmpClient, cache.New(ocicache.InstanceTypesAndZonesTTL, ocicache.DefaultCleanupInterval), unavailableOfferCache)
+	instancetypeProvider := instancetype.NewProvider(region, cmpClient, cache.New(ocicache.InstanceTypesAndZonesTTL, ocicache.DefaultCleanupInterval), unavailableOfferCache, priceSyncer)
 	return ctx, &Operator{
 		Operator:              operator,
 		ImageProvider:         imageProvider,

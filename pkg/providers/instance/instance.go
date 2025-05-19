@@ -269,3 +269,27 @@ func (p *Provider) List(ctx context.Context) ([]core.Instance, error) {
 	}
 	return instances, nil
 }
+
+func (p *Provider) GetVnicAttachments(ctx context.Context, instance *core.Instance) ([]core.VnicAttachment, error) {
+	getVnicReq := core.ListVnicAttachmentsRequest{
+		CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
+		InstanceId:    common.String(*instance.Id),
+	}
+
+	resp, err := p.compClient.ListVnicAttachments(ctx, getVnicReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Items, nil
+}
+
+func (p *Provider) GetSubnets(ctx context.Context, vnics []core.VnicAttachment, onlyPrimaryNic bool) ([]core.Subnet, error) {
+
+	return p.subnetProvider.GetSubnets(ctx, vnics, onlyPrimaryNic)
+}
+
+func (p *Provider) GetSecurityGroups(ctx context.Context, vnics []core.VnicAttachment, onlyPrimaryNic bool) ([]core.NetworkSecurityGroup, error) {
+
+	return p.securityGroupProvider.GetSecurityGroups(ctx, vnics, onlyPrimaryNic)
+}

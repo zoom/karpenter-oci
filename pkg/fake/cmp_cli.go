@@ -23,7 +23,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
-	"github.com/zoom/karpenter-oci/pkg/providers/instancetype"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"net/http"
 	corecloudprovider "sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/utils/atomic"
@@ -45,14 +45,17 @@ type CapacityPool struct {
 // CmpBehavior must be reset between tests otherwise tests will
 // pollute each other.
 type CmpBehavior struct {
+	GetImagesOutput             AtomicPtr[core.GetImageResponse]
 	ListImagesOutput            AtomicPtr[core.ListImagesResponse]
-	DescribeInstanceTypesOutput AtomicPtrSlice[instancetype.WrapShape]
+	DescribeInstanceTypesOutput AtomicPtrSlice[internalmodel.WrapShape]
 	LaunchInstanceBehavior      MockedFunction[core.LaunchInstanceRequest, core.LaunchInstanceResponse]
 	TerminateInstancesBehavior  MockedFunction[core.TerminateInstanceRequest, core.TerminateInstanceResponse]
 	GetInstanceBehavior         MockedFunction[core.GetInstanceRequest, core.GetInstanceResponse]
+	GetVnicAttachmentBehavior   MockedFunction[core.ListVnicAttachmentsRequest, core.ListVnicAttachmentsResponse]
 	ListInstanceBehavior        MockedFunction[core.ListInstancesRequest, core.ListInstancesResponse]
 	CalledWithListImagesInput   AtomicPtrSlice[core.ListImagesRequest]
 	Instances                   sync.Map
+	Vnics                       sync.Map
 	InsufficientCapacityPools   atomic.Slice[CapacityPool]
 }
 
@@ -93,7 +96,24 @@ func (c *CmpCli) ListImages(ctx context.Context, request core.ListImagesRequest)
 			DisplayName: common.String("ubuntu")}},
 	}, nil
 }
+func (c *CmpCli) GetImage(ctx context.Context, request core.GetImageRequest) (response core.GetImageResponse, err error) {
 
+	if !c.GetImagesOutput.IsNil() {
+		getImgOutput := c.GetImagesOutput.Clone()
+		return *getImgOutput, nil
+	}
+
+	if request.ImageId == nil {
+
+		return core.GetImageResponse{}, nil
+	}
+
+	return core.GetImageResponse{
+		Image: core.Image{
+			Id: common.String("ocid1.image.oc1.iad.aaaaaaaa"),
+		},
+	}, nil
+}
 func FilterDescribeImages(images []core.Image, name string) []core.Image {
 	return lo.Filter(images, func(image core.Image, _ int) bool {
 		return *image.DisplayName == name
@@ -113,6 +133,7 @@ func (c *CmpCli) LaunchInstance(ctx context.Context, request core.LaunchInstance
 		if insufficientErr != nil {
 			return nil, insufficientErr
 		}
+		imageId := common.String("ocid1.image.oc1.iad.aaaaaaaa")
 		instance := &core.Instance{
 			Id:                 common.String(uuid.New().String()),
 			Shape:              request.Shape,
@@ -120,10 +141,25 @@ func (c *CmpCli) LaunchInstance(ctx context.Context, request core.LaunchInstance
 			FaultDomain:        common.String("FAULT-DOMAIN-1"),
 			TimeCreated:        &common.SDKTime{Time: time.Now()},
 			SourceDetails: core.InstanceSourceViaImageDetails{
-				ImageId: common.String("ocid1.image.oc1.iad.aaaaaaaa"),
+				ImageId: imageId,
 			},
+			ImageId: imageId,
 		}
 		c.Instances.Store(*instance.Id, instance)
+
+		vnics := []core.VnicAttachment{
+			{
+				AvailabilityDomain: request.AvailabilityDomain,
+				Id:                 common.String(uuid.New().String()),
+				InstanceId:         instance.Id,
+				TimeCreated:        &common.SDKTime{Time: time.Now()},
+				DisplayName:        common.String("netnic"),
+				SubnetId:           DefaultSubnets[0].Id,
+
+				VnicId: DefaultVnics[0].Id,
+			},
+		}
+		c.Vnics.Store(*instance.Id, vnics)
 
 		result := &core.LaunchInstanceResponse{
 			Instance: *instance,
@@ -186,7 +222,7 @@ func (c *CmpCli) ListInstances(ctx context.Context, request core.ListInstancesRe
 func (c *CmpCli) ListShapes(ctx context.Context, request core.ListShapesRequest) (response core.ListShapesResponse, err error) {
 	items := make([]core.Shape, 0)
 	if c.DescribeInstanceTypesOutput.Len() != 0 {
-		c.DescribeInstanceTypesOutput.ForEach(func(c *instancetype.WrapShape) {
+		c.DescribeInstanceTypesOutput.ForEach(func(c *internalmodel.WrapShape) {
 			items = append(items, c.Shape)
 		})
 		return core.ListShapesResponse{
@@ -194,6 +230,25 @@ func (c *CmpCli) ListShapes(ctx context.Context, request core.ListShapesRequest)
 		}, nil
 	}
 	return defaultDescribeInstanceTypesOutput, nil
+}
+
+func (c *CmpCli) ListVnicAttachments(ctx context.Context, request core.ListVnicAttachmentsRequest) (response core.ListVnicAttachmentsResponse, err error) {
+	ptr, err := c.GetVnicAttachmentBehavior.Invoke(&request, func(request *core.ListVnicAttachmentsRequest) (*core.ListVnicAttachmentsResponse, error) {
+
+		vnics, ok := c.Vnics.Load(*request.InstanceId)
+		if !ok {
+			return &core.ListVnicAttachmentsResponse{RawResponse: &http.Response{StatusCode: http.StatusNotFound}}, fmt.Errorf("vnic not found")
+		}
+
+		return &core.ListVnicAttachmentsResponse{
+			RawResponse: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			Items: vnics.([]core.VnicAttachment),
+		}, nil
+	})
+
+	return *ptr, err
 }
 
 func (c *CmpCli) Reset() {

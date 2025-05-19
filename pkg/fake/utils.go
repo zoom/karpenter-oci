@@ -17,7 +17,7 @@ package fake
 import (
 	"fmt"
 	"github.com/Pallinder/go-randomdata"
-	"github.com/zoom/karpenter-oci/pkg/providers/instancetype"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 )
@@ -27,8 +27,8 @@ func InstanceID() string {
 }
 
 // todo impl me
-func MakeInstances() []*instancetype.WrapShape {
-	instanceTypes := make([]*instancetype.WrapShape, 0)
+func MakeInstances() []*internalmodel.WrapShape {
+	instanceTypes := make([]*internalmodel.WrapShape, 0)
 	return instanceTypes
 }
 

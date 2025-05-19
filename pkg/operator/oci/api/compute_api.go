@@ -20,10 +20,12 @@ import (
 )
 
 type ComputeClient interface {
+	GetImage(ctx context.Context, request core.GetImageRequest) (response core.GetImageResponse, err error)
 	ListImages(ctx context.Context, request core.ListImagesRequest) (response core.ListImagesResponse, err error)
 	LaunchInstance(ctx context.Context, request core.LaunchInstanceRequest) (response core.LaunchInstanceResponse, err error)
 	TerminateInstance(ctx context.Context, request core.TerminateInstanceRequest) (response core.TerminateInstanceResponse, err error)
 	GetInstance(ctx context.Context, request core.GetInstanceRequest) (response core.GetInstanceResponse, err error)
 	ListInstances(ctx context.Context, request core.ListInstancesRequest) (response core.ListInstancesResponse, err error)
 	ListShapes(ctx context.Context, request core.ListShapesRequest) (response core.ListShapesResponse, err error)
+	ListVnicAttachments(ctx context.Context, request core.ListVnicAttachmentsRequest) (response core.ListVnicAttachmentsResponse, err error)
 }

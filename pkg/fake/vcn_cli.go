@@ -30,11 +30,30 @@ type VcnCli struct {
 }
 
 type VcnBehavior struct {
-	ListSubnetsOutput       AtomicPtr[core.ListSubnetsResponse]
-	ListSecurityGroupOutput AtomicPtr[core.ListNetworkSecurityGroupsResponse]
+	ListSubnetsOutput        AtomicPtr[core.ListSubnetsResponse]
+	ListSecurityGroupOutput  AtomicPtr[core.ListNetworkSecurityGroupsResponse]
+	GetSubnetOutput          AtomicPtr[core.GetSubnetResponse]
+	GetVnicOutput            AtomicPtr[core.GetVnicResponse]
+	GetSecurityGroupResponse AtomicPtr[core.GetNetworkSecurityGroupResponse]
 }
 
-var defaultSubnets = []core.Subnet{
+var DefaultVnics = []core.Vnic{
+	{
+		Id:          common.String("ocid1.vnic.oci.iad.aaaaaa"),
+		DisplayName: common.String("nic-0"),
+		IsPrimary:   common.Bool(true),
+		SubnetId:    DefaultSubnets[0].Id,
+		NsgIds:      []string{*DefaultSecurityGroup[0].Id, *DefaultSecurityGroup[1].Id, *DefaultSecurityGroup[2].Id},
+	},
+	{
+		Id:          common.String("ocid1.vnic.oci.iad.aaaaab"),
+		DisplayName: common.String("nic-1"),
+		SubnetId:    DefaultSubnets[1].Id,
+		NsgIds:      []string{*DefaultSecurityGroup[1].Id},
+	},
+}
+
+var DefaultSubnets = []core.Subnet{
 	{
 		CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
 		Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaaa"),
@@ -55,7 +74,7 @@ var defaultSubnets = []core.Subnet{
 	},
 }
 
-var defaultSecurityGroup = []core.NetworkSecurityGroup{
+var DefaultSecurityGroup = []core.NetworkSecurityGroup{
 	{
 		CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
 		Id:             common.String("sg-test1"),
@@ -90,7 +109,7 @@ func (v *VcnCli) ListSubnets(ctx context.Context, request core.ListSubnetsReques
 	if request.DisplayName == nil {
 		return core.ListSubnetsResponse{}, fmt.Errorf("InvalidParameterValue: The filter 'null' is invalid")
 	}
-	return core.ListSubnetsResponse{Items: FilterDescribeSubnets(defaultSubnets, *request.DisplayName)}, nil
+	return core.ListSubnetsResponse{Items: FilterDescribeSubnets(DefaultSubnets, *request.DisplayName)}, nil
 }
 
 func (v *VcnCli) ListNetworkSecurityGroups(ctx context.Context, request core.ListNetworkSecurityGroupsRequest) (response core.ListNetworkSecurityGroupsResponse, err error) {
@@ -103,7 +122,71 @@ func (v *VcnCli) ListNetworkSecurityGroups(ctx context.Context, request core.Lis
 	if request.DisplayName == nil {
 		return core.ListNetworkSecurityGroupsResponse{}, fmt.Errorf("InvalidParameterValue: The filter 'null' is invalid")
 	}
-	return core.ListNetworkSecurityGroupsResponse{Items: FilterDescribeSecurityGroups(defaultSecurityGroup, *request.DisplayName)}, nil
+	return core.ListNetworkSecurityGroupsResponse{Items: FilterDescribeSecurityGroups(DefaultSecurityGroup, *request.DisplayName)}, nil
+}
+
+func (v *VcnCli) GetSubnet(ctx context.Context, request core.GetSubnetRequest) (response core.GetSubnetResponse, err error) {
+
+	if request.SubnetId == nil {
+		return core.GetSubnetResponse{}, fmt.Errorf("InvalidParameterValue: The subnetId is empty")
+	}
+
+	if !v.GetSubnetOutput.IsNil() {
+		getSubnetOutput := *v.GetSubnetOutput.Clone()
+		return getSubnetOutput, nil
+	}
+
+	subnet, found := lo.Find(DefaultSubnets, func(item core.Subnet) bool {
+		return item.Id == request.SubnetId
+	})
+
+	if !found {
+		return core.GetSubnetResponse{}, fmt.Errorf("no subnet is found with %s", *request.SubnetId)
+	}
+
+	return core.GetSubnetResponse{Subnet: subnet}, nil
+}
+
+func (v *VcnCli) GetVnic(ctx context.Context, request core.GetVnicRequest) (response core.GetVnicResponse, err error) {
+
+	if request.VnicId == nil {
+		return core.GetVnicResponse{}, fmt.Errorf("InvalidParameterValue: The vnicId is empty")
+	}
+
+	if !v.GetVnicOutput.IsNil() {
+		return *v.GetVnicOutput.Clone(), nil
+	}
+
+	vnic, found := lo.Find(DefaultVnics, func(item core.Vnic) bool {
+		return *request.VnicId == *item.Id
+	})
+
+	if !found {
+		return core.GetVnicResponse{}, fmt.Errorf("no vnic is found with %s", *request.VnicId)
+	}
+
+	return core.GetVnicResponse{Vnic: vnic}, nil
+}
+
+func (v *VcnCli) GetNetworkSecurityGroup(ctx context.Context, request core.GetNetworkSecurityGroupRequest) (response core.GetNetworkSecurityGroupResponse, err error) {
+
+	if request.NetworkSecurityGroupId == nil {
+		return core.GetNetworkSecurityGroupResponse{}, fmt.Errorf("InvalidParameterValue: networkSecurityGroupId is empty")
+	}
+
+	if !v.GetSecurityGroupResponse.IsNil() {
+		return *v.GetSecurityGroupResponse.Clone(), nil
+	}
+
+	sgs, found := lo.Find(DefaultSecurityGroup, func(item core.NetworkSecurityGroup) bool {
+		return *item.Id == *request.NetworkSecurityGroupId
+	})
+
+	if !found {
+		return core.GetNetworkSecurityGroupResponse{}, fmt.Errorf("no sgs is found with %s", *request.NetworkSecurityGroupId)
+	}
+
+	return core.GetNetworkSecurityGroupResponse{NetworkSecurityGroup: sgs}, nil
 }
 
 func FilterDescribeSecurityGroups(sgs []core.NetworkSecurityGroup, displayName string) []core.NetworkSecurityGroup {

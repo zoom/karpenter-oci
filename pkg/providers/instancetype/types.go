@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"github.com/zoom/karpenter-oci/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -123,7 +124,7 @@ func (t TaxBrackets) Calculate(amount float64) float64 {
 	return tax
 }
 
-func NewInstanceType(ctx context.Context, shape *WrapShape, nodeClass *v1alpha1.OciNodeClass, kc *v1alpha1.KubeletConfiguration,
+func NewInstanceType(ctx context.Context, shape *internalmodel.WrapShape, nodeClass *v1alpha1.OciNodeClass, kc *v1alpha1.KubeletConfiguration,
 	region string, zones []string, offerings cloudprovider.Offerings) *cloudprovider.InstanceType {
 	return &cloudprovider.InstanceType{
 		Name:         *shape.Shape.Shape,
@@ -138,7 +139,7 @@ func NewInstanceType(ctx context.Context, shape *WrapShape, nodeClass *v1alpha1.
 	}
 }
 
-func computeRequirements(ctx context.Context, shape *WrapShape, offerings cloudprovider.Offerings, zones []string, region string) scheduling.Requirements {
+func computeRequirements(ctx context.Context, shape *internalmodel.WrapShape, offerings cloudprovider.Offerings, zones []string, region string) scheduling.Requirements {
 	arch := "amd64"
 	if lo.Contains(ArmShapes, *shape.Shape.Shape) {
 		arch = "arm64"
@@ -181,7 +182,7 @@ func computeRequirements(ctx context.Context, shape *WrapShape, offerings cloudp
 	return requirements
 }
 
-func computeCapacity(ctx context.Context, shape *WrapShape, kc *v1alpha1.KubeletConfiguration, nodeclass *v1alpha1.OciNodeClass) v1.ResourceList {
+func computeCapacity(ctx context.Context, shape *internalmodel.WrapShape, kc *v1alpha1.KubeletConfiguration, nodeclass *v1alpha1.OciNodeClass) v1.ResourceList {
 
 	resourceList := v1.ResourceList{
 		v1.ResourceCPU:                    *cpu(shape.CalcCpu),
@@ -218,7 +219,7 @@ func nvidiaGPUs(shape core.Shape) *resource.Quantity {
 }
 
 // TODO fixme, we need to consider the maxVnic only when using native-cni
-func pods(shape *WrapShape, kc *v1alpha1.KubeletConfiguration) *resource.Quantity {
+func pods(shape *internalmodel.WrapShape, kc *v1alpha1.KubeletConfiguration) *resource.Quantity {
 	var count int64
 	switch {
 	case kc != nil && kc.MaxPods != nil:

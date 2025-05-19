@@ -21,6 +21,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
@@ -65,5 +66,54 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	}
 	// todo unique and sort
 	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), subnets)
+	return subnets, nil
+}
+
+func (p *Provider) GetSubnets(ctx context.Context, vnics []core.VnicAttachment, onlyPrimary bool) ([]core.Subnet, error) {
+
+	subnets := make([]core.Subnet, 0)
+
+	var ifOnlyPrimary *core.GetVnicResponse
+	for _, vnic := range vnics {
+
+		if onlyPrimary {
+
+			getVnic := core.GetVnicRequest{VnicId: vnic.VnicId}
+
+			resp, err := p.client.GetVnic(ctx, getVnic)
+			if err != nil {
+				return nil, err
+			}
+
+			if resp.IsPrimary == nil || !*resp.IsPrimary {
+				ifOnlyPrimary = &resp
+				continue
+			}
+
+		}
+
+		// Create a request and dependent object(s).
+		req := core.GetSubnetRequest{
+			SubnetId: vnic.SubnetId,
+		}
+
+		// Send the request using the service client
+		subnetResp, err := p.client.GetSubnet(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		subnets = append(subnets, subnetResp.Subnet)
+
+		if ifOnlyPrimary != nil { // if onlyPrimary
+			break
+		}
+	}
+
+	// uniq the subnets
+	subnets = lo.UniqBy(subnets, func(item core.Subnet) string {
+		return *item.Id
+	})
+
 	return subnets, nil
 }

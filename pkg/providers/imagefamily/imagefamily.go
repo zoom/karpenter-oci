@@ -47,17 +47,28 @@ func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) (
 	}
 	images := make([]core.Image, 0)
 	for _, selector := range nodeclass.Spec.ImageSelector {
-		req := core.ListImagesRequest{
-			CompartmentId:  common.String(selector.CompartmentId),
-			DisplayName:    common.String(selector.Name),
-			LifecycleState: core.ImageLifecycleStateAvailable}
+		if selector.Id == "" {
+			req := core.ListImagesRequest{
+				CompartmentId:  common.String(selector.CompartmentId),
+				DisplayName:    common.String(selector.Name),
+				LifecycleState: core.ImageLifecycleStateAvailable}
 
-		// Send the request using the service client
-		resp, err := p.client.ListImages(ctx, req)
-		if err != nil {
-			return nil, err
+			// Send the request using the service client
+			resp, err := p.client.ListImages(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			images = append(images, resp.Items...)
+		} else {
+			req := core.GetImageRequest{
+				ImageId: common.String(selector.Id),
+			}
+			resp, err := p.client.GetImage(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			images = append(images, resp.Image)
 		}
-		images = append(images, resp.Items...)
 	}
 	// todo sort and unique
 	p.cache.SetDefault(fmt.Sprintf("%d", hash), images)

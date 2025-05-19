@@ -147,10 +147,10 @@ var _ = Describe("NodeClass Hash Controller", func() {
 
 		expectedHash := nodeClass.Hash()
 
-		// Expect ec2nodeclass-hash on the NodeClass to be updated
+		// Expect nodeclass-hash on the NodeClass to be updated
 		Expect(nodeClass.Annotations).To(HaveKeyWithValue(v1alpha1.AnnotationOciNodeClassHash, expectedHash))
 		Expect(nodeClass.Annotations).To(HaveKeyWithValue(v1alpha1.AnnotationOciNodeClassHashVersion, v1alpha1.OciNodeClassHashVersion))
-		// Expect ec2nodeclass-hash on the NodeClaims to stay the same
+		// Expect nodeclass-hash on the NodeClaims to stay the same
 		Expect(nodeClaim.Annotations).To(HaveKeyWithValue(v1alpha1.AnnotationOciNodeClassHash, "1234564654"))
 		Expect(nodeClaim.Annotations).To(HaveKeyWithValue(v1alpha1.AnnotationOciNodeClassHashVersion, v1alpha1.OciNodeClassHashVersion))
 	})

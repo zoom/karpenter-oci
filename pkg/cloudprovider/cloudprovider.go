@@ -176,8 +176,35 @@ func (c *CloudProvider) Delete(ctx context.Context, nodeClaim *corev1.NodeClaim)
 	return c.instanceProvider.Delete(ctx, nodeClaim.Status.ProviderID)
 }
 
-func (c *CloudProvider) IsDrifted(ctx context.Context, claim *corev1.NodeClaim) (cloudprovider.DriftReason, error) {
-	return "", nil
+func (c *CloudProvider) IsDrifted(ctx context.Context, nodeClaim *corev1.NodeClaim) (cloudprovider.DriftReason, error) {
+
+	// get node pool using pool name parsed from node claim label
+	nodePoolName, ok := nodeClaim.Labels[corev1.NodePoolLabelKey]
+	if !ok {
+		return "", nil
+	}
+	nodePool := &corev1.NodePool{}
+	if err := c.kubeClient.Get(ctx, types.NamespacedName{Name: nodePoolName}, nodePool); err != nil {
+		return "", client.IgnoreNotFound(err)
+	}
+	if nodePool.Spec.Template.Spec.NodeClassRef == nil {
+		return "", nil
+	}
+	// get node class related to node pool
+	nodeClass, err := c.resolveNodeClassFromNodePool(ctx, nodePool)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			c.recorder.Publish(cloudproviderevents.NodePoolFailedToResolveNodeClass(nodePool))
+		}
+		return "", client.IgnoreNotFound(fmt.Errorf("resolving node class, %w", err))
+	}
+
+	// check drift reason
+	driftReason, err := c.isNodeClassDrifted(ctx, nodeClaim, nodePool, nodeClass)
+	if err != nil {
+		return "", err
+	}
+	return driftReason, nil
 }
 
 func (c *CloudProvider) Name() string {

@@ -80,7 +80,7 @@ func NewEnvironment(ctx context.Context, env *coretest.Environment) *Environment
 	amiProvider := imagefamily.NewProvider(cmpCli, amiCache)
 	amiResolver := imagefamily.NewResolver(amiProvider)
 	unavailableOfferCache := ocicache.NewUnavailableOfferings()
-	instanceTypesProvider := instancetype.NewProvider("us-ashburn-1", cmpCli, instanceTypeCache, unavailableOfferCache)
+	instanceTypesProvider := instancetype.NewProvider("us-ashburn-1", cmpCli, instanceTypeCache, unavailableOfferCache, nil)
 	launchTemplateProvider :=
 		launchtemplate.NewDefaultProvider(
 			amiResolver,

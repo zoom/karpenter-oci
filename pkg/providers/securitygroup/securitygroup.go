@@ -68,3 +68,39 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), sgs)
 	return sgs, nil
 }
+
+func (p *Provider) GetSecurityGroups(ctx context.Context, vnics []core.VnicAttachment, onlyPrimaryVnic bool) ([]core.NetworkSecurityGroup, error) {
+
+	sgs := make([]core.NetworkSecurityGroup, 0)
+
+	// vnics
+	for _, vnic := range vnics {
+		getVnic := core.GetVnicRequest{VnicId: vnic.VnicId}
+
+		resp, err := p.client.GetVnic(ctx, getVnic)
+		if err != nil {
+			return nil, err
+		}
+
+		if onlyPrimaryVnic && (resp.IsPrimary == nil || !*resp.IsPrimary) {
+			continue
+		}
+
+		for _, nsgId := range resp.NsgIds {
+
+			getSg := core.GetNetworkSecurityGroupRequest{
+				NetworkSecurityGroupId: common.String(nsgId),
+			}
+
+			group, err := p.client.GetNetworkSecurityGroup(ctx, getSg)
+			if err != nil {
+				return nil, err
+			}
+			sgs = append(sgs, group.NetworkSecurityGroup)
+		}
+
+	}
+
+	return sgs, nil
+
+}
