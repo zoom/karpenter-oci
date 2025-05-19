@@ -1,0 +1,180 @@
+# -- Overrides the chart's name.
+nameOverride: ""
+# -- Overrides the chart's computed fullname.
+fullnameOverride: ""
+# -- Additional labels to add into metadata.
+additionalLabels: {}
+# app: karpenter
+
+# -- Additional annotations to add into metadata.
+additionalAnnotations: {}
+# -- Image pull policy for Docker images.
+imagePullPolicy: IfNotPresent
+# -- Image pull secrets for Docker images.
+imagePullSecrets: []
+serviceAccount:
+  # -- Specifies if a ServiceAccount should be created.
+  create: true
+  # -- The name of the ServiceAccount to use.
+  # If not set and create is true, a name is generated using the fullname template.
+  name: ""
+  # -- Additional annotations for the ServiceAccount.
+  annotations: {}
+# -- Specifies additional rules for the core ClusterRole.
+additionalClusterRoleRules: []
+serviceMonitor:
+  # -- Specifies whether a ServiceMonitor should be created.
+  enabled: false
+  # -- Additional labels for the ServiceMonitor.
+  additionalLabels: {}
+  # -- Configuration on `http-metrics` endpoint for the ServiceMonitor.
+  # Not to be used to add additional endpoints.
+  # See the Prometheus operator documentation for configurable fields https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#endpoint
+  endpointConfig: {}
+# -- Number of replicas.
+replicas: 2
+# -- The number of old ReplicaSets to retain to allow rollback.
+revisionHistoryLimit: 10
+# -- Strategy for updating the pod.
+strategy:
+  rollingUpdate:
+    maxUnavailable: 1
+# -- Additional labels for the pod.
+podLabels: {}
+# -- Additional annotations for the pod.
+podAnnotations: {}
+podDisruptionBudget:
+  name: karpenter
+  maxUnavailable: 1
+# -- SecurityContext for the pod.
+podSecurityContext:
+  fsGroup: 65532
+# -- PriorityClass name for the pod.
+priorityClassName: system-cluster-critical
+# -- Override the default termination grace period for the pod.
+terminationGracePeriodSeconds:
+# -- Bind the pod to the host network.
+# This is required when using a custom CNI.
+hostNetwork: false
+# -- Configure the DNS Policy for the pod
+dnsPolicy: ClusterFirst
+# -- Configure DNS Config for the pod
+dnsConfig: {}
+#  options:
+#    - name: ndots
+#      value: "1"
+# -- Node selectors to schedule the pod to nodes with labels.
+nodeSelector:
+  kubernetes.io/os: linux
+# -- Affinity rules for scheduling the pod. If an explicit label selector is not provided for pod affinity or pod anti-affinity one will be created from the pod selector labels.
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: karpenter.sh/nodepool
+              operator: DoesNotExist
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: "kubernetes.io/hostname"
+# -- Topology spread constraints to increase the controller resilience by distributing pods across the cluster zones. If an explicit label selector is not provided one will be created from the pod selector labels.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+# -- Tolerations to allow the pod to be scheduled to nodes with taints.
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+# -- Additional volumes for the pod.
+extraVolumes: []
+controller:
+  image:
+    # -- Repository path to the controller image.
+    repository: ocir.us-ashburn-1.oci.oraclecloud.com/idkx1lfgxgf7/karpenter/karpenter-oci/controller
+    # -- Tag of the controller image.
+    tag: 1.0.9-alpha01
+    # -- SHA256 digest of the controller image.
+    digest: sha256:2aa2d7d3bc7fd76a302ccf44a40124f854be439694f553499fa10b60b7cd2ed7
+  # -- Additional environment variables for the controller pod.
+  env: []
+  envFrom: []
+  # -- Resources for the controller pod.
+  resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  #  requests:
+  #    cpu: 1
+  #    memory: 1Gi
+  #  limits:
+  #    cpu: 1
+  #    memory: 1Gi
+
+  # -- Additional volumeMounts for the controller pod.
+  extraVolumeMounts: []
+  sidecarContainer: []
+  # -- Additional volumeMounts for the sidecar - this will be added to the volume mounts on top of extraVolumeMounts
+  sidecarVolumeMounts: []
+  metrics:
+    # -- The container port to use for metrics.
+    port: 8080
+  healthProbe:
+    # -- The container port to use for http health probe.
+    port: 8081
+webhook:
+  # -- Whether to enable the webhooks and webhook permissions.
+  enabled: false
+  # -- The container port to use for the webhook.
+  port: 8443
+  metrics:
+    # -- The container port to use for webhook metrics.
+    port: 8001
+# -- Global log level, defaults to 'info'
+logLevel: info
+# -- Log outputPaths - defaults to stdout only
+logOutputPaths:
+  - stdout
+# -- Log errorOutputPaths - defaults to stderr only
+logErrorOutputPaths:
+  - stderr
+# -- Global Settings to configure Karpenter
+settings:
+  # -- The maximum length of a batch window. The longer this is, the more pods we can consider for provisioning at one
+  # time which usually results in fewer but larger nodes.
+  batchMaxDuration: 10s
+  # -- The maximum amount of time with no new ending pods that if exceeded ends the current batching window. If pods arrive
+  # faster than this time, the batching window will be extended up to the maxDuration. If they arrive slower, the pods
+  # will be batched separately.
+  batchIdleDuration: 1s
+  # -- Cluster CA bundle for TLS configuration of provisioned nodes. If not set, this is taken from the controller's TLS configuration for the API server.
+  clusterCABundle: ""
+  # -- Cluster name. Required
+  clusterName: ""
+  # -- Cluster endpoint. Required
+  clusterEndpoint: ""
+  # -- Cluster dns. clusterDNS is a IP addresses for the cluster DNS server, Required
+  clusterDns: ""
+  # -- The compartment id to create and list instances
+  compartmentId: ""
+  # -- oke resource principal version
+  ociResourcePrincipalVersion: "2.2"
+  # -- oke resource principal region
+  ociResourcePrincipalRegion: ""
+  # -- the auth method for oci, support API_KEY, OKE, SESSION, INSTANCE_PRINCIPAL
+  ociAuthMethods: "OKE"
+  # -- to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu
+  flexCpuConstrainList: "1,2,4,8,16,32,48,64,96,128"
+  # the ratios of vcpu and mem, eg FLEX_CPU_MEM_RATIOS=2,4, if create flex instance with 2 cores(1 ocpu), mem should be 4Gi or 8Gi
+  flexCpuMemRatios: "2,4,8"
+  # The tag namespace used to create and list instances. Required
+  tagNamespace: "oke-karpenter-ns"
+  # -- The VM memory overhead as a percent that will be subtracted from the total memory for all instance types
+  vmMemoryOverheadPercent: 0.075
+  # -- Feature Gate configuration values. Feature Gates will follow the same graduation process and requirements as feature gates
+  # in Kubernetes. More information here https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/#feature-gates-for-alpha-or-beta-features
+  featureGates:
+    # -- spotToSpotConsolidation is ALPHA and is disabled by default.
+    # Setting this to true will enable spot replacement consolidation for both single and multi-node consolidation.
+    spotToSpotConsolidation: false

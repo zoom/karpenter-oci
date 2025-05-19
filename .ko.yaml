@@ -1,0 +1,4 @@
+defaultBaseImage: oraclelinux:8-slim
+defaultPlatforms:
+  - linux/arm64
+  - linux/amd64

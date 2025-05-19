@@ -1,0 +1,9 @@
+# Environment
+.idea
+.vscode
+.DS_Store
+
+/vendor/
+/local/
+/coverage.out
+/coverage.html
