@@ -205,7 +205,7 @@ If you meet any problem, welcome to raise a issue.
 ## Roadmap
 | item                          | date      |
 |-------------------------------|-----------|
-| update karpenter core to v1.4 | 2024.June |
+| update karpenter core to v1.4 | 2025.June |
 ## Contributing
 Contributing is welcome, you can raise a PR to add new feature or fix bugs. We use `envtest` to run the test suite, better add the related test case in your commit.
 
