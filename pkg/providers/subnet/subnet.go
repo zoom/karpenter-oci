@@ -29,7 +29,7 @@ import (
 )
 
 type Provider struct {
-	sync.RWMutex
+	sync.Mutex
 	client api.VirtualNetworkClient
 	cache  *cache.Cache
 }
@@ -39,12 +39,15 @@ func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider 
 }
 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.Subnet, error) {
-	p.Lock()
-	defer p.Unlock()
+
 	hash, err := hashstructure.Hash(nodeClass.Spec.SubnetSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
 		return nil, err
 	}
+
+	p.Lock()
+	defer p.Unlock()
+
 	if subnets, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
 		return subnets.([]core.Subnet), nil
 	}

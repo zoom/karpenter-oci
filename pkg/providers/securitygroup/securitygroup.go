@@ -17,6 +17,8 @@ package securitygroup
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -24,11 +26,10 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
-	"sync"
 )
 
 type Provider struct {
-	sync.RWMutex
+	sync.Mutex
 	client api.VirtualNetworkClient
 	cache  *cache.Cache
 }
@@ -38,8 +39,6 @@ func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider 
 }
 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.NetworkSecurityGroup, error) {
-	p.Lock()
-	defer p.Unlock()
 	if len(nodeClass.Spec.SecurityGroupSelector) == 0 {
 		return []core.NetworkSecurityGroup{}, nil
 	}
@@ -47,6 +46,10 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	if err != nil {
 		return nil, err
 	}
+
+	p.Lock()
+	defer p.Unlock()
+
 	if sgs, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
 		return sgs.([]core.NetworkSecurityGroup), nil
 	}
