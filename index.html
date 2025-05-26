@@ -1,0 +1,384 @@
+<h1 id="karpenter-oci">karpenter-oci</h1>
+<h2 id="description">Description</h2>
+<p>karpenter-oci is the oracle cloud implement of karpenter, it depends on <a href="https://github.com/kubernetes-sigs/karpenter">karpenter</a>. It supports OKE cluster, and self-managed cluster on oracle cloud.</p>
+<h2 id="arch-overview">Arch Overview</h2>
+<p><img src="designs/images/karpenter-oci-arch.png" alt="Arch"></p>
+<h2 id="feature">Feature</h2>
+<ol>
+<li>Automatically scale up node capacity when available resources are insufficient</li>
+<li>Decommission idle nodes when no workload is present</li>
+<li>Support multi authenticate Method: resource principle, instance principle, api key, session</li>
+<li>Image is configurable</li>
+<li>Subnet is configurable</li>
+<li>Supports configuration of none or multiple security groups</li>
+<li>Support VM and Bare Metal</li>
+<li>Support attachment of additional disk</li>
+<li>Support specifying the kubelet configuration<h2 id="installation">Installation</h2>
+<h3 id="prepare">prepare</h3>
+</li>
+<li>create a compartment, karpenter-oci will launch instance in this compartment</li>
+<li>create an OKE cluster under the above compartment</li>
+<li>create policy in oracle console, the name could like karpenter-oke-policy, the statements as below<pre><code>Allow any-user to manage instance-family <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to manage instances <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to read instance-images <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to read app-catalog-listing <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to manage volume-family <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to manage volume-attachments <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use volumes <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use virtual-network-family <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to inspect vcns <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use subnets <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use network-security-groups <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use vnics <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+Allow any-user to use tag-namespaces <span class="hljs-keyword">in</span> tenancy where all {request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.type</span> = <span class="hljs-string">'workload'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.namespace</span> = <span class="hljs-string">'karpenter'</span>,request<span class="hljs-selector-class">.principal</span><span class="hljs-selector-class">.service_account</span> = <span class="hljs-string">'karpenter'</span>}
+</code></pre></li>
+<li>create tag namespace, the namespace name could like <code>oke-karpenter-ns</code>, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">key</th>
+<th style="text-align:left">description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">karpenter_k8s_oracle/ocinodeclass</td>
+<td style="text-align:left">the name of nodeclass used to crate instance</td>
+</tr>
+<tr>
+<td style="text-align:left">karpenter_sh/managed-by</td>
+<td style="text-align:left">the OKE cluster name</td>
+</tr>
+<tr>
+<td style="text-align:left">karpenter_sh/nodepool</td>
+<td style="text-align:left">the name of nodepool used to create instance</td>
+</tr>
+</tbody>
+</table>
+<h3 id="install">install</h3>
+<p>replace the clusterName, clusterEndpoint, clusterDns, compartmentId, ociResourcePrincipalRegion with yours.</p>
+<pre><code><span class="hljs-string">kubectl </span><span class="hljs-string">apply </span>-f ./<span class="hljs-string">pkg/</span><span class="hljs-string">apis/</span><span class="hljs-string">crds/</span>
+<span class="hljs-string">helm </span><span class="hljs-string">upgrade </span><span class="hljs-built_in">--install</span> <span class="hljs-string">karpenter </span>./<span class="hljs-string">charts/</span><span class="hljs-string">karpenter </span><span class="hljs-built_in">--namespace</span> <span class="hljs-string">"karpenter"</span> <span class="hljs-built_in">--create-namespace</span> <span class="hljs-built_in">--set</span> <span class="hljs-string">"settings.clusterName=karpenter-oci-test"</span> <span class="hljs-built_in">--set</span> <span class="hljs-string">"settings.clusterEndpoint=https://10.0.0.8:6443"</span> <span class="hljs-built_in">--set</span> <span class="hljs-string">"settings.clusterDns=10.96.5.5"</span> <span class="hljs-built_in">--set</span> <span class="hljs-string">"settings.compartmentId=ocid1.compartment.oc1..aaaaaaaa"</span> <span class="hljs-built_in">--set</span> <span class="hljs-string">"settings.ociResourcePrincipalRegion=us-ashburn-1"</span>
+</code></pre><p>setting details</p>
+<table>
+<thead>
+<tr>
+<th>setting</th>
+<th>description</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>clusterName</td>
+<td>cluster name</td>
+<td></td>
+</tr>
+<tr>
+<td>clusterEndpoint</td>
+<td>api server private endpoint</td>
+<td></td>
+</tr>
+<tr>
+<td>clusterDns</td>
+<td>IP addresses for the cluster DNS server, general is core dns ip</td>
+<td></td>
+</tr>
+<tr>
+<td>compartmentId</td>
+<td>the compartment id or your worker nodes</td>
+<td></td>
+</tr>
+<tr>
+<td>ociResourcePrincipalRegion</td>
+<td>the region your cluster belong to, refer <a href="https://github.com/oracle/oci-go-sdk/issues/489">issue</a></td>
+<td></td>
+</tr>
+<tr>
+<td>ociAuthMethods</td>
+<td>API_KEY, OKE, SESSION, INSTANCE_PRINCIPAL</td>
+<td>OKE</td>
+</tr>
+<tr>
+<td>flexCpuConstrainList</td>
+<td>to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu</td>
+<td>&quot;1,2,4,8,16,32,48,64,96,128&quot;</td>
+</tr>
+<tr>
+<td>flexCpuMemRatios</td>
+<td>the ratios of vcpu and mem, eg. FLEX_CPU_MEM_RATIOS=2,4, if create flex instance with 2 cores(1 ocpu), mem should be 4Gi or 8Gi</td>
+<td>&quot;2,4,8&quot;</td>
+</tr>
+<tr>
+<td>tagNamespace</td>
+<td>The tag namespace used to create and list instances by karpenter-oci, karpenter-oci will attach nodepool and nodeclass tag on the instance</td>
+<td>oke-karpenter-ns</td>
+</tr>
+<tr>
+<td>vmMemoryOverheadPercent</td>
+<td>he VM memory overhead as a percent that will be subtracted from the total memory for all instance types</td>
+<td>0.075</td>
+</tr>
+</tbody>
+</table>
+<h2 id="usage">Usage</h2>
+<h3 id="nodepool">nodepool</h3>
+<p>nodepool use to specify the disruption strategy, cpu and memory limits and requirements. The oracle feature requirement include the below labels:</p>
+<table>
+<thead>
+<tr>
+<th>label</th>
+<th>description</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>karpenter.k8s.oracle/instance-shape-name</td>
+<td>the shape name</td>
+<td>VM.Standard.E4.Flex</td>
+</tr>
+<tr>
+<td>karpenter.k8s.oracle/instance-cpu</td>
+<td>the vcpu count of the instance shape, for flex shape, karpenter-oci will strictly create instance in these vcpu sizes</td>
+<td>4,8</td>
+</tr>
+<tr>
+<td>karpenter.k8s.oracle/instance-memory</td>
+<td>the memory size of the instance shape, the unit is MB</td>
+<td>2048,4096</td>
+</tr>
+<tr>
+<td>karpenter.k8s.oracle/instance-gpu</td>
+<td>the gpu card count of the instance shape</td>
+<td>1</td>
+</tr>
+<tr>
+<td>karpenter.k8s.oracle/is-flexible</td>
+<td>the instance shape is flexible or not</td>
+<td>&quot;true&quot;</td>
+</tr>
+</tbody>
+</table>
+<p><a href="docs/sample/nodepool_sample.yaml">example</a></p>
+<pre><code class="lang-yaml"><span class="hljs-attribute">apiVersion</span>: karpenter.sh/v1
+<span class="hljs-attribute">kind</span>: NodePool
+<span class="hljs-attribute">metadata</span>:
+  <span class="hljs-attribute">name</span>: karpenter-test
+<span class="hljs-attribute">spec</span>:
+  <span class="hljs-attribute">disruption</span>:
+    <span class="hljs-attribute">budgets</span>:
+      - <span class="hljs-attribute">nodes</span>: <span class="hljs-number">10%</span>
+    <span class="hljs-attribute">consolidateAfter</span>: <span class="hljs-number">30</span>m0s
+    <span class="hljs-attribute">consolidationPolicy</span>: WhenEmpty
+  <span class="hljs-attribute">limits</span>:
+    <span class="hljs-attribute">cpu</span>: <span class="hljs-number">64</span>
+    <span class="hljs-attribute">memory</span>: <span class="hljs-number">300</span>Gi
+  <span class="hljs-attribute">template</span>:
+    <span class="hljs-attribute">metadata</span>:
+      <span class="hljs-attribute">labels</span>:
+        <span class="hljs-attribute">servicegroup</span>: karpenter-test
+    <span class="hljs-attribute">spec</span>:
+      <span class="hljs-attribute">expireAfter</span>: Never
+      <span class="hljs-attribute">nodeClassRef</span>:
+        <span class="hljs-attribute">group</span>: karpenter.k8s.oracle
+        <span class="hljs-attribute">kind</span>: OciNodeClass
+        <span class="hljs-attribute">name</span>: karpenter-test
+      <span class="hljs-attribute">requirements</span>:
+        - <span class="hljs-attribute">key</span>: karpenter.sh/capacity-type
+          <span class="hljs-attribute">operator</span>: In
+          <span class="hljs-attribute">values</span>:
+            - on-demand
+        - <span class="hljs-attribute">key</span>: karpenter.k8s.oracle/instance-shape-name
+          <span class="hljs-attribute">operator</span>: In
+          <span class="hljs-attribute">values</span>:
+            - VM.Standard.E4.Flex
+        - <span class="hljs-attribute">key</span>: karpenter.k8s.oracle/instance-cpu
+          <span class="hljs-attribute">operator</span>: In
+          <span class="hljs-attribute">values</span>:
+            - <span class="hljs-string">'4'</span>
+            - <span class="hljs-string">'8'</span>
+            - <span class="hljs-string">'16'</span>
+        - <span class="hljs-attribute">key</span>: kubernetes.io/os
+          <span class="hljs-attribute">operator</span>: In
+          <span class="hljs-attribute">values</span>:
+            - linux
+      <span class="hljs-attribute">terminationGracePeriod</span>: <span class="hljs-number">30</span>m
+</code></pre>
+<h3 id="ocinodeclass">ocinodeclass</h3>
+<p>the ocinodeclass is used for config the oracle cloud related resource, like OS image, subnet, security group, and also kubelet config.</p>
+<table>
+<thead>
+<tr>
+<th>spec</th>
+<th>description</th>
+<th>required</th>
+<th>example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bootConfig.bootVolumeSizeInGBs</td>
+<td>The size of the boot volume in GBs. Minimum value is 50 GB and maximum value is 32,768 GB (32 TB).</td>
+<td>yes</td>
+<td>100</td>
+</tr>
+<tr>
+<td>bootConfig.bootVolumeVpusPerGB</td>
+<td>The number of volume performance units (VPUs) that will be applied to this volume per GB</td>
+<td>yes</td>
+<td>10</td>
+</tr>
+<tr>
+<td>imageSelector[i].compartmentId</td>
+<td>the compartment id of the image</td>
+<td>yes</td>
+<td>ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq</td>
+</tr>
+<tr>
+<td>imageSelector[i].name</td>
+<td>the image name</td>
+<td>yes</td>
+<td>Oracle-Linux-8.10-2025.02.28-0-OKE-1.30.1-760</td>
+</tr>
+<tr>
+<td>launchOptions</td>
+<td>LaunchOptions Options for tuning the compatibility and performance of VM shapes</td>
+<td>no</td>
+<td><a href="https://docs.oracle.com/en-us/iaas/tools/python/2.150.3/api/core/models/oci.core.models.LaunchOptions.html">detail</a></td>
+</tr>
+<tr>
+<td>blockDevices</td>
+<td>The details of the volume to create for CreateVolume operation.</td>
+<td>no</td>
+<td><code>sizeInGBs: 100</code> <code>vpusPerGB: 10</code></td>
+</tr>
+<tr>
+<td>imageFamily</td>
+<td>support OracleOKELinux and Ubuntu2204, for OKE cluster use <code>OracleOKELinux</code> and for self-managed cluster use <code>Ubuntu2204</code></td>
+<td>yes</td>
+<td>OracleOKELinux</td>
+</tr>
+<tr>
+<td>vcnId</td>
+<td>the vcnId of the cluster</td>
+<td>yes</td>
+<td></td>
+</tr>
+<tr>
+<td>subnetSelector</td>
+<td>the name of the subnet which you want to create the worker nodes instance in</td>
+<td>yes</td>
+<td>oke-nodesubnet-quick-test</td>
+</tr>
+<tr>
+<td>securityGroupSelector</td>
+<td>the security groups you want to attach to the instance</td>
+<td>no</td>
+<td></td>
+</tr>
+<tr>
+<td>tags</td>
+<td>the tags you want to attach to the instance</td>
+<td>no</td>
+<td></td>
+</tr>
+<tr>
+<td>metaData</td>
+<td>specify for native cni cluster</td>
+<td>no</td>
+<td><code>{&quot;oke-native-pod-networking&quot;:&quot;true&quot;}</code></td>
+</tr>
+<tr>
+<td>userData</td>
+<td>customer userdata you want to run in the cloud-init script, it will execute before the kubelet start</td>
+<td>no</td>
+<td></td>
+</tr>
+<tr>
+<td>kubelet</td>
+<td>customer kubelet config</td>
+<td>no</td>
+<td><a href="pkg/apis/v1alpha1/ocinodeclass.go">KubeletConfiguration</a></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>if your cluster use flannel as the cni, you can refer:
+<a href="docs/sample/oke_ocinodeclasses_sample.yaml">example</a><pre><code class="lang-yaml"><span class="hljs-attribute">apiVersion</span>: karpenter.k8s.oracle/v1alpha1
+<span class="hljs-attribute">kind</span>: OciNodeClass
+<span class="hljs-attribute">metadata</span>:
+<span class="hljs-attribute">name</span>: karpenter-test
+<span class="hljs-attribute">spec</span>:
+<span class="hljs-attribute">bootConfig</span>:
+  <span class="hljs-attribute">bootVolumeSizeInGBs</span>: <span class="hljs-number">100</span>
+  <span class="hljs-attribute">bootVolumeVpusPerGB</span>: <span class="hljs-number">10</span>
+<span class="hljs-attribute">imageSelector</span>:
+  - <span class="hljs-attribute">name</span>: Oracle-Linux-<span class="hljs-number">8.10</span>-<span class="hljs-number">2025.02</span>.<span class="hljs-number">28</span>-<span class="hljs-number">0</span>-OKE-<span class="hljs-number">1.30</span>.<span class="hljs-number">1</span>-<span class="hljs-number">760</span>
+    <span class="hljs-attribute">compartmentId</span>: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
+<span class="hljs-attribute">imageFamily</span>: OracleOKELinux
+<span class="hljs-attribute">kubelet</span>:
+  <span class="hljs-attribute">evictionHard</span>:
+    imagefs.<span class="hljs-attribute">available</span>: <span class="hljs-number">15%</span>
+    imagefs.<span class="hljs-attribute">inodesFree</span>: <span class="hljs-number">10%</span>
+    memory.<span class="hljs-attribute">available</span>: <span class="hljs-number">750</span>Mi
+    nodefs.<span class="hljs-attribute">available</span>: <span class="hljs-number">10%</span>
+    nodefs.<span class="hljs-attribute">inodesFree</span>: <span class="hljs-number">5%</span>
+  <span class="hljs-attribute">systemReserved</span>:
+    <span class="hljs-attribute">memory</span>: <span class="hljs-number">100</span>Mi
+<span class="hljs-attribute">subnetSelector</span>: 
+  - <span class="hljs-attribute">name</span>: {{ .subnetName }}
+<span class="hljs-attribute">vcnId</span>: {{ .vcnId }}
+</code></pre>
+</li>
+<li>if your cluster use the native cni, you should set <code>oke-native-pod-networking</code> in the metadata as <code>true</code>, you can refer: <a href="docs/sample/oke_ocinodeclasses_native_cni_sample.yaml">example</a><pre><code class="lang-yaml"><span class="hljs-attribute">apiVersion</span>: karpenter.k8s.oracle/v1alpha1
+<span class="hljs-attribute">kind</span>: OciNodeClass
+<span class="hljs-attribute">metadata</span>:
+<span class="hljs-attribute">name</span>: karpenter-test
+<span class="hljs-attribute">spec</span>:
+<span class="hljs-attribute">bootConfig</span>:
+  <span class="hljs-attribute">bootVolumeSizeInGBs</span>: <span class="hljs-number">100</span>
+  <span class="hljs-attribute">bootVolumeVpusPerGB</span>: <span class="hljs-number">10</span>
+<span class="hljs-attribute">imageSelector</span>:
+  - <span class="hljs-attribute">name</span>: Oracle-Linux-<span class="hljs-number">8.10</span>-<span class="hljs-number">2025.02</span>.<span class="hljs-number">28</span>-<span class="hljs-number">0</span>-OKE-<span class="hljs-number">1.30</span>.<span class="hljs-number">1</span>-<span class="hljs-number">760</span>
+    <span class="hljs-attribute">compartmentId</span>: ocid1.compartment.oc1..aaaaaaaab4u67dhgtj5gpdpp3z42xqqsdnufxkatoild46u3hb67vzojfmzq
+<span class="hljs-attribute">imageFamily</span>: OracleOKELinux
+<span class="hljs-attribute">metaData</span>:
+  <span class="hljs-attribute">oke-native-pod-networking</span>: <span class="hljs-string">"true"</span>
+<span class="hljs-attribute">kubelet</span>:
+  <span class="hljs-attribute">evictionHard</span>:
+    imagefs.<span class="hljs-attribute">available</span>: <span class="hljs-number">15%</span>
+    imagefs.<span class="hljs-attribute">inodesFree</span>: <span class="hljs-number">10%</span>
+    memory.<span class="hljs-attribute">available</span>: <span class="hljs-number">750</span>Mi
+    nodefs.<span class="hljs-attribute">available</span>: <span class="hljs-number">10%</span>
+    nodefs.<span class="hljs-attribute">inodesFree</span>: <span class="hljs-number">5%</span>
+  <span class="hljs-attribute">systemReserved</span>:
+    <span class="hljs-attribute">memory</span>: <span class="hljs-number">100</span>Mi
+<span class="hljs-attribute">subnetSelector</span>: 
+  - <span class="hljs-attribute">name</span>: {{ .subnetName }}
+<span class="hljs-attribute">vcnId</span>: {{ .vcnId }}
+</code></pre>
+</li>
+</ul>
+<h2 id="support">Support</h2>
+<p>If you meet any problem, welcome to raise a issue.</p>
+<h2 id="roadmap">Roadmap</h2>
+<table>
+<thead>
+<tr>
+<th>item</th>
+<th>date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>update karpenter core to v1.4</td>
+<td>2025.June</td>
+</tr>
+</tbody>
+</table>
+<h2 id="contributing">Contributing</h2>
+<p>Contributing is welcome, you can raise a PR to add new feature or fix bugs. We use <code>envtest</code> to run the test suite, better add the related test case in your commit.</p>
+<h2 id="license">License</h2>
+<p><a href="http://www.apache.org/licenses/LICENSE-2.0">http://www.apache.org/licenses/LICENSE-2.0</a></p>
