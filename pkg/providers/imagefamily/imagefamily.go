@@ -17,6 +17,8 @@ package imagefamily
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -26,6 +28,7 @@ import (
 )
 
 type Provider struct {
+	sync.Mutex
 	cache  *cache.Cache
 	client api.ComputeClient
 }
@@ -42,6 +45,10 @@ func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) (
 	if err != nil {
 		return nil, err
 	}
+
+	p.Lock()
+	defer p.Unlock()
+
 	if images, ok := p.cache.Get(fmt.Sprintf("%d", hash)); ok {
 		return images.([]core.Image), nil
 	}
