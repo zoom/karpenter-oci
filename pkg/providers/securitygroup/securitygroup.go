@@ -17,6 +17,8 @@ package securitygroup
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -24,7 +26,6 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
-	"sync"
 )
 
 type Provider struct {
@@ -38,18 +39,25 @@ func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider 
 }
 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.NetworkSecurityGroup, error) {
-	p.Lock()
-	defer p.Unlock()
 	if len(nodeClass.Spec.SecurityGroupSelector) == 0 {
 		return []core.NetworkSecurityGroup{}, nil
 	}
+
 	hash, err := hashstructure.Hash(nodeClass.Spec.SecurityGroupSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
 		return nil, err
 	}
-	if sgs, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
+
+	cacheKey := fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)
+
+	// Use RLock for reading from cache
+	p.RLock()
+	if sgs, ok := p.cache.Get(cacheKey); ok {
+		p.RUnlock()
 		return sgs.([]core.NetworkSecurityGroup), nil
 	}
+	p.RUnlock()
+
 	// Create a request and dependent object(s).
 	sgs := make([]core.NetworkSecurityGroup, 0)
 	for _, selector := range nodeClass.Spec.SecurityGroupSelector {
@@ -65,7 +73,11 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 		}
 		sgs = append(sgs, resp.Items...)
 	}
-	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), sgs)
+
+	p.Lock()
+	p.cache.SetDefault(cacheKey, sgs)
+	p.Unlock()
+
 	return sgs, nil
 }
 
