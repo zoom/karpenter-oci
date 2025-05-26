@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,17 +10,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -euo pipefail
+# exit immediately when a command fails
+set -e
+# only exit with zero if all commands of the pipeline exit successfully
+set -o pipefail
+# error on unset variables
+set -u
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-# shellcheck source=hack/release/common.sh
-source "${SCRIPT_DIR}/common.sh"
+result=$(
+    find . -type f \( -name "*.go" -o -name "*.sh" \) ! -path '*/vendor/*' -exec \
+         sh -c 'head -n5 $1 | grep -Eq "(Apache License)" || echo -e  $1' {} {} \;
+)
 
-commit_sha="$(git rev-parse HEAD)"
-
-# Don't release with a dirty commit!
-if [[ "$(git status --porcelain)" != "" ]]; then
-  exit 1
+if [ -n "${result}" ]; then
+        echo -e "license header checking failed:\\n${result}"
+        exit 255
 fi
-repo="${1}"
-snapshot "${commit_sha}" "${repo}"

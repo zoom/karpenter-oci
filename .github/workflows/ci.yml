@@ -1,0 +1,98 @@
+name: CI
+# for test
+#      - '*'
+#      - '*/*'
+#      - '**'
+on:
+  push:
+    branches:
+      - master
+      - main
+      - release-*
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch: {}
+
+env:
+  GO_VERSION: '1.24.1'
+  GOLANGCI_VERSION: 'v1.64.7'
+
+
+
+jobs:
+  check-license:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Check License
+        run: hack/make-rules/check_license.sh
+
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: go env
+      - name: set env
+        run: echo "GOPATH=$(go env GOPATH)" >> "$GITHUB_ENV"
+      - name: install controller-gen
+        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.2
+      - name: install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - run: ls -lht $GOPATH/bin/
+      - name: Verify Code
+        run: make verify
+
+  golangci-lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Lint golang code
+        uses: golangci/golangci-lint-action@v6.0.1
+        with:
+          version: ${{ env.GOLANGCI_VERSION }}
+          args:
+              --verbose
+              --timeout=10m
+          skip-cache: true
+          mode: readonly
+
+
+  unit-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: install kubebuilder&envtest
+        run: |
+          # download kubebuilder and install locally.
+          curl -L -o kubebuilder "https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH)"
+          chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          ls -lht `go env GOPATH`/bin
+          sudo mkdir -p /usr/local/kubebuilder/bin/
+          sudo chmod -R 777 /usr/local/kubebuilder/
+          setup-envtest use 1.30.3 --bin-dir /usr/local/kubebuilder/bin/
+          
+          cp /usr/local/kubebuilder/bin/k8s/1.30.3-linux-amd64/* /usr/local/kubebuilder/bin/
+      - name: Run Unit Tests
+        run: make test

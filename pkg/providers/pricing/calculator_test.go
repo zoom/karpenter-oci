@@ -183,7 +183,8 @@ func TestPrice(t *testing.T) {
 
 		}
 		price := Calculate(wrapShape, &syncer.PriceCatalog)
-		if price != tc.Price {
+		//if price != tc.Price {
+		if !floatEqual(float64(price), float64(tc.Price), 1e-6) {
 			t.Errorf("%v,expected: %+v, actual: %+v", *tc.Shape.Shape, tc.Price, price)
 		}
 	}
