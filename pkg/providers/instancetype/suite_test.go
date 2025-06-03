@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/zoom/karpenter-oci/pkg/utils"
 	"github.com/awslabs/operatorpkg/status"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -659,6 +660,10 @@ var _ = Describe("InstanceTypeProvider", func() {
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-2"},
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-3"},
 			})
+        	ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", utils.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", utils.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", utils.CapacityTypePreemptible)
+
 			nodePool.Spec.Template.Spec.Requirements = nil
 			nodePool.Spec.Template.Spec.Requirements = append(nodePool.Spec.Template.Spec.Requirements, karpv1.NodeSelectorRequirementWithMinValues{
 				NodeSelectorRequirement: v1.NodeSelectorRequirement{
