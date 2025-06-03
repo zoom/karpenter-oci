@@ -17,6 +17,10 @@ package instancetype
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/patrickmn/go-cache"
@@ -28,14 +32,12 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"github.com/zoom/karpenter-oci/pkg/providers/pricing"
+	"github.com/zoom/karpenter-oci/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 const (
@@ -73,8 +75,25 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
 	var offerings []*cloudprovider.Offering
 
+	basePrice := float64(p.priceProvider.Price(shape))
 	// only on-demand support
 	for zone := range zones {
+		// Add preemptible offering with lower price (higher priority)
+		isPreemptibleUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, utils.CapacityTypePreemptible)
+		if !isPreemptibleUnavailable {
+			// Lower price means higher priority when sorting by price
+			preemptiblePrice := basePrice * 0.5
+
+			offerings = append(offerings, &cloudprovider.Offering{
+				Requirements: scheduling.NewRequirements(
+					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, utils.CapacityTypePreemptible),
+					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
+				),
+				Price:     preemptiblePrice,
+				Available: true,
+			})
+		}
+
 		// exclude any offerings that have recently seen an insufficient capacity error
 		isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeOnDemand) // todo support pricing calculate
 
@@ -88,6 +107,13 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 			Available: !isUnavailable,
 		})
 		// metric
+		// add preemptible metrics
+		instanceTypeOfferingAvailable.With(prometheus.Labels{
+			instanceTypeLabel: *shape.Shape.Shape,
+			capacityTypeLabel: utils.CapacityTypePreemptible,
+			zoneLabel:         zone,
+		}).Set(float64(lo.Ternary(!isPreemptibleUnavailable, 1, 0)))
+		// add ondemand instances metrics
 		instanceTypeOfferingAvailable.With(prometheus.Labels{
 			instanceTypeLabel: *shape.Shape.Shape,
 			capacityTypeLabel: v1.CapacityTypeOnDemand,
@@ -97,6 +123,11 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
 			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
 			capacityTypeLabel: v1.CapacityTypeOnDemand,
+			zoneLabel:         zone,
+		}).Set(price)
+		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
+			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
+			capacityTypeLabel: utils.CapacityTypePreemptible,
 			zoneLabel:         zone,
 		}).Set(price)
 	}

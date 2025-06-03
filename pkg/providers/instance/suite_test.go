@@ -16,6 +16,7 @@ package instance_test
 
 import (
 	"context"
+	"fmt"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
@@ -26,6 +27,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
 	"github.com/zoom/karpenter-oci/pkg/test"
 	"github.com/zoom/karpenter-oci/pkg/utils"
+	v1core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -165,5 +167,40 @@ var _ = Describe("InstanceProvider", func() {
 
 		retrievedIDs := sets.New[string](lo.Map(instances, func(i core.Instance, _ int) string { return *i.Id })...)
 		Expect(ids.Equal(retrievedIDs)).To(BeTrue())
+	})
+	It("should create preemptible instance when requested", func() {
+		ExpectApplied(ctx, env.Client, nodeClaim, nodePool, nodeClass)
+		ociEnv.CmpCli.InsufficientCapacityPools.Set([]fake.CapacityPool{
+			{CapacityType: v1.CapacityTypeOnDemand, InstanceType: "m5.xlarge", Zone: "US-ASHBURN-AD-1"},
+			{CapacityType: v1.CapacityTypeOnDemand, InstanceType: "m5.xlarge", Zone: "US-ASHBURN-AD-2"},
+			{CapacityType: v1.CapacityTypeOnDemand, InstanceType: "m5.xlarge", Zone: "US-ASHBURN-AD-3"},
+		})
+		nodeClaim.Spec.Requirements = append(nodeClaim.Spec.Requirements, v1.NodeSelectorRequirementWithMinValues{
+			NodeSelectorRequirement: v1core.NodeSelectorRequirement{
+				Key:      v1.CapacityTypeLabelKey,
+				Operator: v1core.NodeSelectorOpIn,
+				Values:   []string{"preemptible"},
+			},
+		})
+
+		instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+		fmt.Printf("Total instance types: %d\n", len(instanceTypes))
+		for i, it := range instanceTypes {
+			fmt.Printf("\nInstance Type #%d:\n", i+1)
+			fmt.Printf("  Name: %s\n", it.Name)
+		}
+		Expect(err).ToNot(HaveOccurred())
+
+		// Filter down to a single instance type for testing
+		instanceTypes = lo.Filter(instanceTypes, func(i *corecloudprovider.InstanceType, _ int) bool {
+			return i.Name == "shape-1"
+		})
+
+		instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(instance).ToNot(BeNil())
+
 	})
 })
