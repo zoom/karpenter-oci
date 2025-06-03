@@ -77,9 +77,26 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 	if p.priceSyncer != nil {
 		priceCatalog = &p.priceSyncer.PriceCatalog
 	}
+	basePrice := float64(pricing.Calculate(shape, priceCatalog))
 
 	// only on-demand support
 	for zone := range zones {
+		// Add preemptible offering with lower price (higher priority)
+		isPreemptibleUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeSpot)
+		if !isPreemptibleUnavailable {
+			// Lower price means higher priority when sorting by price
+			preemptiblePrice := basePrice * 0.5
+
+			offerings = append(offerings, cloudprovider.Offering{
+				Requirements: scheduling.NewRequirements(
+					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, v1.CapacityTypeSpot),
+					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
+				),
+				Price:     preemptiblePrice,
+				Available: true,
+			})
+		}
+
 		// exclude any offerings that have recently seen an insufficient capacity error
 		isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeOnDemand) // todo support pricing calculate
 
@@ -93,6 +110,13 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 			Available: !isUnavailable,
 		})
 		// metric
+		// add preemptible metrics
+		instanceTypeOfferingAvailable.With(prometheus.Labels{
+			instanceTypeLabel: *shape.Shape.Shape,
+			capacityTypeLabel: v1.CapacityTypeSpot,
+			zoneLabel:         zone,
+		}).Set(float64(lo.Ternary(!isPreemptibleUnavailable, 1, 0)))
+		// add ondemand instances metrics
 		instanceTypeOfferingAvailable.With(prometheus.Labels{
 			instanceTypeLabel: *shape.Shape.Shape,
 			capacityTypeLabel: v1.CapacityTypeOnDemand,
@@ -102,6 +126,11 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
 			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
 			capacityTypeLabel: v1.CapacityTypeOnDemand,
+			zoneLabel:         zone,
+		}).Set(price)
+		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
+			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
+			capacityTypeLabel: v1.CapacityTypeSpot,
 			zoneLabel:         zone,
 		}).Set(price)
 	}
