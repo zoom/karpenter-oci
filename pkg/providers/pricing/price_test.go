@@ -16,7 +16,6 @@ package pricing
 
 import (
 	"testing"
-	"time"
 )
 
 func TestPriceListSyncer_Start(t *testing.T) {
@@ -28,7 +27,7 @@ func TestPriceListSyncer_Start(t *testing.T) {
 	syncer := NewPriceListSyncer(endpint, period, true)
 	_ = syncer.Start()
 
-	time.Sleep(20 * time.Second)
+	//time.Sleep(20 * time.Second)
 
 	/*
 	   "VM.Standard2.24",
