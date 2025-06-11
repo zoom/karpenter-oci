@@ -22,6 +22,22 @@ func ToString(p *string) (v string) {
 	return *p
 }
 
+func ToFloat64(p *float64) (v float64) {
+	if p == nil {
+		return v
+	}
+
+	return *p
+}
+
+func ToFloat32(p *float32) (v float32) {
+	if p == nil {
+		return v
+	}
+
+	return *p
+}
+
 func String(v string) *string {
 	return &v
 }

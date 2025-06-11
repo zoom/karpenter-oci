@@ -373,6 +373,20 @@ spec:
                     cluster under the subnet selectors.
                   items:
                     properties:
+                      cidrUtilization:
+                        items:
+                          properties:
+                            addressType:
+                              description: Address type of the CIDR within a subnet.
+                              type: string
+                            cidr:
+                              description: The CIDR range of a subnet.
+                              type: string
+                            utilization:
+                              description: The CIDR utilisation of a subnet.
+                              type: string
+                          type: object
+                        type: array
                       id:
                         type: string
                       name:

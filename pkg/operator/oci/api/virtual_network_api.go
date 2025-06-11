@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/oracle/oci-go-sdk/v65/core"
 )
 
@@ -25,4 +26,5 @@ type VirtualNetworkClient interface {
 	GetNetworkSecurityGroup(ctx context.Context, request core.GetNetworkSecurityGroupRequest) (response core.GetNetworkSecurityGroupResponse, err error)
 	GetSubnet(ctx context.Context, request core.GetSubnetRequest) (response core.GetSubnetResponse, err error)
 	GetVnic(ctx context.Context, request core.GetVnicRequest) (response core.GetVnicResponse, err error)
+	GetSubnetCidrUtilization(ctx context.Context, request core.GetSubnetCidrUtilizationRequest) (response core.GetSubnetCidrUtilizationResponse, err error)
 }

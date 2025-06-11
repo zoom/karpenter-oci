@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"github.com/awslabs/operatorpkg/status"
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/samber/lo"
@@ -77,8 +78,20 @@ type OciNodeClassStatus struct {
 }
 
 type Subnet struct {
-	Id   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	Id              string                   `json:"id,omitempty"`
+	Name            string                   `json:"name,omitempty"`
+	CidrUtilization []CidrUtilizationSummary `json:"cidrUtilization,omitempty"`
+}
+
+type CidrUtilizationSummary struct {
+	// The CIDR range of a subnet.
+	Cidr string `json:"cidr,omitempty"`
+
+	// The CIDR utilisation of a subnet.
+	Utilization string `json:"utilization,omitempty"`
+
+	// Address type of the CIDR within a subnet.
+	AddressType string `json:"addressType,omitempty"`
 }
 
 type Image struct {
