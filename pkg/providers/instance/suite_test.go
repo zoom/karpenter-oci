@@ -17,6 +17,9 @@ package instance_test
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
@@ -28,6 +31,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/test"
 	"github.com/zoom/karpenter-oci/pkg/utils"
 	v1core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -36,8 +40,6 @@ import (
 	"sigs.k8s.io/karpenter/pkg/events"
 	coreoptions "sigs.k8s.io/karpenter/pkg/operator/options"
 	coretest "sigs.k8s.io/karpenter/pkg/test"
-	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -198,9 +200,101 @@ var _ = Describe("InstanceProvider", func() {
 
 		instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
 
-
 		Expect(err).ToNot(HaveOccurred())
 		Expect(instance).ToNot(BeNil())
 
+	})
+	It("should balance instances across multiple subnets", func() {
+		ociEnv.VcnCli.ListSubnetsOutput.Set(&core.ListSubnetsResponse{
+			Items: []core.Subnet{
+				{
+					CidrBlock:      common.String("10.0.0.0/24"),
+					CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
+					Id:             common.String("subnet-id-1"),
+					LifecycleState: core.SubnetLifecycleStateAvailable,
+					VcnId:          common.String("vcn_1"),
+					DisplayName:    common.String("private-1"),
+				},
+				{
+					CidrBlock:      common.String("10.0.0.10/24"),
+					CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaab"),
+					Id:             common.String("subnet-id-2"),
+					LifecycleState: core.SubnetLifecycleStateAvailable,
+					VcnId:          common.String("vcn_1"),
+					DisplayName:    common.String("private-2"),
+				},
+				{
+					CidrBlock:      common.String("10.0.0.20/24"),
+					CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaac"),
+					Id:             common.String("subnet-id-3"),
+					LifecycleState: core.SubnetLifecycleStateAvailable,
+					VcnId:          common.String("vcn_1"),
+					DisplayName:    common.String("private-3"),
+				}},
+		})
+		nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{
+			{Name: "private-1"},
+			{Name: "private-2"},
+			{Name: "private-3"},
+		}
+		// case 1, subnet-id-3 should be selected
+		ociEnv.VcnCli.GetSubnetCidrUtilizationOutput.Set(&map[string]core.GetSubnetCidrUtilizationResponse{
+			"subnet-id-1": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.0/24"), Utilization: common.Float32(30)}}}},
+			"subnet-id-2": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.10/24"), Utilization: common.Float32(20)}}}},
+			"subnet-id-3": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.20/24"), Utilization: common.Float32(10)}}}},
+		})
+		subnet, count, err := ociEnv.InstanceProvider.FindLeastUtilizedSubnet(ctx, nodeClass)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(subnet).ToNot(BeNil())
+		Expect(*subnet.Id == "subnet-id-3").To(BeTrue())
+		Expect(count == 231).To(BeTrue())
+
+		// case 2, subnet-id-2 should be selected
+		ociEnv.VcnCli.GetSubnetCidrUtilizationOutput.Set(&map[string]core.GetSubnetCidrUtilizationResponse{
+			"subnet-id-1": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.0/24"), Utilization: common.Float32(30)}}}},
+			"subnet-id-2": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.10/24"), Utilization: common.Float32(10)}}}},
+			"subnet-id-3": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.20/24"), Utilization: common.Float32(100)}}}},
+		})
+		subnet, count, err = ociEnv.InstanceProvider.FindLeastUtilizedSubnet(ctx, nodeClass)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(subnet).ToNot(BeNil())
+		Expect(*subnet.Id == "subnet-id-2").To(BeTrue())
+		Expect(count == 231).To(BeTrue())
+
+		// case 3, no subnet should be selected
+		ociEnv.VcnCli.GetSubnetCidrUtilizationOutput.Set(&map[string]core.GetSubnetCidrUtilizationResponse{
+			"subnet-id-1": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.0/24"), Utilization: common.Float32(100)}}}},
+			"subnet-id-2": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.10/24"), Utilization: common.Float32(100)}}}},
+			"subnet-id-3": core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+				Count:                             common.Int(1),
+				IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{{Cidr: common.String("10.0.0.20/24"), Utilization: common.Float32(100)}}}},
+		})
+
+		ExpectApplied(ctx, env.Client, nodeClaim, nodePool, nodeClass)
+		instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+		Expect(err).ToNot(HaveOccurred())
+		nodeClaim.Spec.Resources.Requests = v1core.ResourceList{
+			v1core.ResourcePods: resource.MustParse("3"),
+		}
+		instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+		Expect(instance).To(BeNil())
+		Expect(err).ToNot(BeNil())
+		Expect(err.Error() == "not enough IPs are available on all subnets").To(BeTrue())
 	})
 })
