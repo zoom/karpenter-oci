@@ -17,6 +17,7 @@ package fake
 import (
 	"context"
 	"fmt"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
@@ -187,6 +188,11 @@ func (v *VcnCli) GetNetworkSecurityGroup(ctx context.Context, request core.GetNe
 	}
 
 	return core.GetNetworkSecurityGroupResponse{NetworkSecurityGroup: sgs}, nil
+}
+
+func (v *VcnCli) GetSubnetCidrUtilization(ctx context.Context, request core.GetSubnetCidrUtilizationRequest) (response core.GetSubnetCidrUtilizationResponse, err error) {
+	// TODO add implemetation
+	return
 }
 
 func FilterDescribeSecurityGroups(sgs []core.NetworkSecurityGroup, displayName string) []core.NetworkSecurityGroup {

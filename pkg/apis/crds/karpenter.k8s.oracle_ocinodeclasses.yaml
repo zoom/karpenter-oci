@@ -375,6 +375,14 @@ spec:
                     properties:
                       id:
                         type: string
+                      ipv4CidrBlock:
+                        type: string
+                      ipv4Utilization:
+                        type: string
+                      ipv6CidrBlock:
+                        type: string
+                      ipv6Utilization:
+                        type: string
                       name:
                         type: string
                     type: object

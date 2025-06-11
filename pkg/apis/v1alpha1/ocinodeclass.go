@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"github.com/awslabs/operatorpkg/status"
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/samber/lo"
@@ -76,8 +77,12 @@ type OciNodeClassStatus struct {
 }
 
 type Subnet struct {
-	Id   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	Id              string `json:"id,omitempty"`
+	Name            string `json:"name,omitempty"`
+	IPv4CidrBlock   string `json:"ipv4CidrBlock,omitempty"`
+	IPv4Utilization string `json:"ipv4Utilization,omitempty"`
+	IPv6CidrBlock   string `json:"ipv6CidrBlock,omitempty"`
+	IPv6Utilization string `json:"ipv6Utilization,omitempty"`
 }
 
 type Image struct {

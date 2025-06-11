@@ -17,14 +17,17 @@ package status
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"time"
+
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/providers/subnet"
 	"github.com/zoom/karpenter-oci/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sort"
-	"time"
 )
 
 type Subnet struct {
@@ -45,10 +48,24 @@ func (s *Subnet) Reconcile(ctx context.Context, nodeClass *v1alpha1.OciNodeClass
 		return *subnets[i].Id < *subnets[j].Id
 	})
 	nodeClass.Status.Subnets = lo.Map(subnets, func(ociSubnet core.Subnet, _ int) *v1alpha1.Subnet {
-		return &v1alpha1.Subnet{
+		subnetStatus := &v1alpha1.Subnet{
 			Id:   utils.ToString(ociSubnet.Id),
 			Name: utils.ToString(ociSubnet.DisplayName),
 		}
+		v4, v6, err1 := s.subnetProvider.GetSubnetUtilization(ctx, &ociSubnet)
+		if err1 != nil {
+			log.FromContext(ctx).V(1).Error(err1, "subnetProvider.GetSubnetUtilization failed.", "subnetId", ociSubnet.Id)
+		}
+		if ociSubnet.CidrBlock != nil {
+			subnetStatus.IPv4CidrBlock = *ociSubnet.CidrBlock
+		}
+		if v4 != nil {
+			subnetStatus.IPv4Utilization = strconv.FormatFloat(float64(*v4), 'f', -1, 32)
+		}
+		if v6 != nil {
+			subnetStatus.IPv6Utilization = strconv.FormatFloat(float64(*v6), 'f', -1, 32)
+		}
+		return subnetStatus
 	})
 	nodeClass.StatusConditions().SetTrue(v1alpha1.ConditionTypeSubnetsReady)
 	return reconcile.Result{RequeueAfter: time.Minute}, nil
