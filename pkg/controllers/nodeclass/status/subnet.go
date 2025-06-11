@@ -17,14 +17,17 @@ package status
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"time"
+
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/providers/subnet"
 	"github.com/zoom/karpenter-oci/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sort"
-	"time"
 )
 
 type Subnet struct {
@@ -45,10 +48,24 @@ func (s *Subnet) Reconcile(ctx context.Context, nodeClass *v1alpha1.OciNodeClass
 		return *subnets[i].Id < *subnets[j].Id
 	})
 	nodeClass.Status.Subnets = lo.Map(subnets, func(ociSubnet core.Subnet, _ int) *v1alpha1.Subnet {
-		return &v1alpha1.Subnet{
+		subnetStatus := &v1alpha1.Subnet{
 			Id:   utils.ToString(ociSubnet.Id),
 			Name: utils.ToString(ociSubnet.DisplayName),
 		}
+		summarys, err1 := s.subnetProvider.GetSubnetUtilization(ctx, &ociSubnet)
+		if err1 != nil {
+			log.FromContext(ctx).V(1).Error(err1, "subnetProvider.GetSubnetUtilization failed.", "subnetId", ociSubnet.Id)
+			return subnetStatus
+		}
+		subnetStatus.CidrUtilization = make([]v1alpha1.CidrUtilizationSummary, 0, len(summarys))
+		for _, summary := range summarys {
+			subnetStatus.CidrUtilization = append(subnetStatus.CidrUtilization, v1alpha1.CidrUtilizationSummary{
+				Cidr:        utils.ToString(summary.Cidr),
+				Utilization: strconv.FormatFloat(float64(utils.ToFloat32(summary.Utilization)), 'f', -1, 32),
+				AddressType: utils.ToString(summary.AddressType),
+			})
+		}
+		return subnetStatus
 	})
 	nodeClass.StatusConditions().SetTrue(v1alpha1.ConditionTypeSubnetsReady)
 	return reconcile.Result{RequeueAfter: time.Minute}, nil

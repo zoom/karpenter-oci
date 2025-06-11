@@ -60,10 +60,16 @@ var _ = Describe("NodeClass Subnet Status Controller", func() {
 			{
 				Id:   "subnet-id-1",
 				Name: "private-1",
+				CidrUtilization: []v1alpha1.CidrUtilizationSummary{
+					{Cidr: "10.0.0.0/24", Utilization: "0", AddressType: "Private_IPv4"},
+				},
 			},
 			{
 				Id:   "subnet-id-2",
 				Name: "private-1",
+				CidrUtilization: []v1alpha1.CidrUtilizationSummary{
+					{Cidr: "10.0.0.0/24", Utilization: "0", AddressType: "Private_IPv4"},
+				},
 			},
 		}))
 		Expect(nodeClass.StatusConditions().IsTrue(v1alpha1.ConditionTypeSubnetsReady)).To(BeTrue())
