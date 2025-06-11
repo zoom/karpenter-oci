@@ -28,6 +28,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Provider struct {
@@ -46,6 +47,9 @@ func (p *Provider) GetSubnetUtilization(ctx context.Context, subnet *core.Subnet
 	})
 	if err != nil {
 		return nil, nil, err
+	}
+	for _, summary := range resp.IpInventoryCidrUtilizationSummary {
+		log.FromContext(ctx).V(1).Info("IpInventoryCidrUtilizationSummary", "AddressType", summary.AddressType, "Cidr", summary.Cidr, "Utilization", summary.Utilization)
 	}
 	if len(resp.IpInventoryCidrUtilizationSummary) > 0 {
 		v4Utilization = resp.IpInventoryCidrUtilizationSummary[0].Utilization
