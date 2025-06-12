@@ -106,6 +106,8 @@ spec:
           operator: In
           values:
             - on-demand
+            ### if you wanna enable preemptible instances creation for lower cost, add below line.
+            - preemptible
         - key: karpenter.k8s.oracle/instance-shape-name
           operator: In
           values:
