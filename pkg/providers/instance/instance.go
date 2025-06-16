@@ -106,7 +106,12 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return nil, err
 	}
 	metadata["user_data"] = userdata
-
+	// Determine capacity type based on node requirements
+	capacityType := corev1.CapacityTypeOnDemand
+	nodeReqs := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...)
+	if nodeReqs.Get(corev1.CapacityTypeLabelKey).Has(utils.CapacityTypePreemptible) {
+		capacityType = utils.CapacityTypePreemptible
+	}
 	req := core.LaunchInstanceRequest{LaunchInstanceDetails: core.LaunchInstanceDetails{
 		// todo subnet id balance
 		CreateVnicDetails:       &core.CreateVnicDetails{SubnetId: subnets[0].Id, NsgIds: sgsIds},
@@ -123,6 +128,14 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		Metadata:           metadata,
 		InstanceOptions:    &core.InstanceOptions{AreLegacyImdsEndpointsDisabled: common.Bool(true)},
 	}}
+	// Set preemptible flag if needed
+	if capacityType == utils.CapacityTypePreemptible {
+		req.LaunchInstanceDetails.PreemptibleInstanceConfig = &core.PreemptibleInstanceConfigDetails{
+			PreemptionAction: core.TerminatePreemptionAction{
+				PreserveBootVolume: common.Bool(false),
+			},
+		}
+	}
 
 	// for flexible instance, specify the ocpu and memory
 	if instanceType.Requirements.Get(v1alpha1.LabelIsFlexible).Has("true") {
@@ -194,6 +207,7 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 	if len(instanceTypes) == 0 {
 		return nil, ""
 	}
+
 	sortedInstanceType := instanceTypes.OrderByPrice(scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...))
 	instanceType := sortedInstanceType[0]
 	// Zone - ideally random/spread from requested zones that support given Priority
