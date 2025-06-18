@@ -9,6 +9,9 @@ on:
       - master
       - main
       - release-*
+      - '*'
+      - '*/*'
+      - '**'
   pull_request:
     branches:
       - master
