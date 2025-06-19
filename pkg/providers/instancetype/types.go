@@ -124,8 +124,12 @@ func (t TaxBrackets) Calculate(amount float64) float64 {
 	return tax
 }
 
-func NewInstanceType(ctx context.Context, shape *internalmodel.WrapShape, nodeClass *v1alpha1.OciNodeClass, kc *v1alpha1.KubeletConfiguration,
+func NewInstanceType(ctx context.Context, shape *internalmodel.WrapShape, nodeClass *v1alpha1.OciNodeClass,
 	region string, zones []string, offerings cloudprovider.Offerings) *cloudprovider.InstanceType {
+	kc := &v1alpha1.KubeletConfiguration{}
+	if nodeClass.Spec.Kubelet != nil {
+		kc = nodeClass.Spec.Kubelet
+	}
 	return &cloudprovider.InstanceType{
 		Name:         *shape.Shape.Shape,
 		Requirements: computeRequirements(ctx, shape, offerings, zones, region),
@@ -153,7 +157,7 @@ func computeRequirements(ctx context.Context, shape *internalmodel.WrapShape, of
 		scheduling.NewRequirement(v1.LabelTopologyZone, v1.NodeSelectorOpIn, zones...),
 		scheduling.NewRequirement(v1.LabelTopologyRegion, v1.NodeSelectorOpIn, region),
 		// Well Known to Karpenter
-		scheduling.NewRequirement(corev1.CapacityTypeLabelKey, v1.NodeSelectorOpIn, lo.Map(offerings.Available(), func(o cloudprovider.Offering, _ int) string {
+		scheduling.NewRequirement(corev1.CapacityTypeLabelKey, v1.NodeSelectorOpIn, lo.Map(offerings.Available(), func(o *cloudprovider.Offering, _ int) string {
 			return o.Requirements.Get(corev1.CapacityTypeLabelKey).Any()
 		})...),
 		// Well Known to OCI
@@ -168,7 +172,7 @@ func computeRequirements(ctx context.Context, shape *internalmodel.WrapShape, of
 	)
 	// insert actual value if exist
 	if shape.NetworkingBandwidthInGbps != nil {
-		requirements[v1alpha1.LabelInstanceNetworkBandwidth].Insert(fmt.Sprint(lo.FromPtr(shape.NetworkingBandwidthInGbps)))
+		requirements[v1alpha1.LabelInstanceNetworkBandwidth].Insert(fmt.Sprint(shape.CalMaxBandwidthInGbps * 1024))
 	}
 	if shape.MaxVnicAttachments != nil {
 		requirements[v1alpha1.LabelInstanceMaxVNICs].Insert(fmt.Sprint(shape.CalMaxVnic))

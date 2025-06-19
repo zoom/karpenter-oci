@@ -32,6 +32,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/providers/instancetype"
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"github.com/zoom/karpenter-oci/pkg/test"
+	"github.com/zoom/karpenter-oci/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -77,7 +78,7 @@ var _ = BeforeSuite(func() {
 	fakeClock = &clock.FakeClock{}
 	cloudProvider = cloudprovider.New(ociEnv.InstanceTypesProvider, ociEnv.InstanceProvider, events.NewRecorder(&record.FakeRecorder{}),
 		env.Client, ociEnv.AMIProvider)
-	cluster = state.NewCluster(fakeClock, env.Client)
+	cluster = state.NewCluster(fakeClock, env.Client, cloudProvider)
 	prov = provisioning.NewProvisioner(env.Client, events.NewRecorder(&record.FakeRecorder{}), cloudProvider, cluster, fakeClock)
 })
 
@@ -87,7 +88,7 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
-	ctx = options.ToContext(ctx, test.Options(test.OptionsFields{AvailableDomains: []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"}}))
+	ctx = options.ToContext(ctx, test.Options(test.OptionsFields{ClusterName: utils.String("test-cluster"), AvailableDomains: []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"}}))
 	cluster.Reset()
 	ociEnv.Reset()
 	ociEnv.LaunchTemplateProvider.ClusterEndpoint = "https://test-cluster"
@@ -117,7 +118,9 @@ var _ = Describe("InstanceTypeProvider", func() {
 							},
 						},
 						NodeClassRef: &karpv1.NodeClassReference{
-							Name: nodeClass.Name,
+							Name:  nodeClass.Name,
+							Group: v1alpha1.Group,
+							Kind:  "OciNodeClass",
 						},
 					},
 				},
@@ -147,7 +150,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 			v1alpha1.LabelInstanceShapeName:        "shape-gpu",
 			v1alpha1.LabelInstanceCPU:              "2",
 			v1alpha1.LabelInstanceMemory:           "8192",
-			v1alpha1.LabelInstanceNetworkBandwidth: "10",
+			v1alpha1.LabelInstanceNetworkBandwidth: "10240",
 			v1alpha1.LabelInstanceMaxVNICs:         "2",
 			v1alpha1.LabelIsFlexible:               "false",
 			v1alpha1.LabelInstanceGPU:              "1",
@@ -222,7 +225,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 			it := instancetype.NewInstanceType(ctx,
 				info,
 				nodeClass,
-				nodeClass.Spec.Kubelet,
 				"us-ashburn-1",
 				[]string{"us-east-1"},
 				ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -258,7 +260,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 			it := instancetype.NewInstanceType(ctx,
 				info,
 				nodeClass,
-				nodeClass.Spec.Kubelet,
 				"us-ashburn-1",
 				[]string{"us-east-1"},
 				ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -268,7 +269,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 	})
 	Context("Metrics", func() {
 		It("should expose vcpu metrics for instance types", func() {
-			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass.Spec.Kubelet, nodeClass)
+			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass)
 			Expect(err).To(BeNil())
 			Expect(len(instanceTypes)).To(BeNumerically(">", 0))
 			for _, it := range instanceTypes {
@@ -282,7 +283,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 			}
 		})
 		It("should expose memory metrics for instance types", func() {
-			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass.Spec.Kubelet, nodeClass)
+			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass)
 			Expect(err).To(BeNil())
 			Expect(len(instanceTypes)).To(BeNumerically(">", 0))
 			for _, it := range instanceTypes {
@@ -296,7 +297,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 			}
 		})
 		It("should expose availability metrics for instance types", func() {
-			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass.Spec.Kubelet, nodeClass)
+			instanceTypes, err := ociEnv.InstanceTypesProvider.List(ctx, nodeClass)
 			Expect(err).To(BeNil())
 			Expect(len(instanceTypes)).To(BeNumerically(">", 0))
 			for _, it := range instanceTypes {
@@ -341,7 +342,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -361,7 +361,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -378,7 +377,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -404,7 +402,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -426,7 +423,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -445,7 +441,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -464,7 +459,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -484,7 +478,6 @@ var _ = Describe("InstanceTypeProvider", func() {
 					ctx,
 					info,
 					nodeClass,
-					nodeClass.Spec.Kubelet,
 					"us-ashburn-1",
 					[]string{"us-east-1"},
 					ociEnv.InstanceTypesProvider.CreateOfferings(info, sets.New[string]("us-east-1")),
@@ -608,8 +601,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: &v1.NodeAffinity{PreferredDuringSchedulingIgnoredDuringExecution: []v1.PreferredSchedulingTerm{
 				{
 					Weight: 1, Preference: v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{
-						{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
-					}},
+					{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
+				}},
 				},
 			}}}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
@@ -729,7 +722,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 				VpusPerGB: 20},
 			}
 		})
-		It("should default to EBS defaults when volumeSize is not defined in blockDeviceMappings for AL2 Root volume", func() {
+		It("should use defaults when volumeSize is not defined in blockDeviceMappings for instance Root volume", func() {
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
 			pod := coretest.UnschedulablePod()
 			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
@@ -773,8 +766,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: &v1.NodeAffinity{PreferredDuringSchedulingIgnoredDuringExecution: []v1.PreferredSchedulingTerm{
 				{
 					Weight: 1, Preference: v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{
-						{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
-					}},
+					{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
+				}},
 				},
 			}}}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)

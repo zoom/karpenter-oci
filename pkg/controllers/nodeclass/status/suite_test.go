@@ -40,7 +40,7 @@ var statusController *Controller
 func TestAPIs(t *testing.T) {
 	ctx = TestContextWithLogger(t)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "EC2NodeClass")
+	RunSpecs(t, "OciNodeClass")
 }
 
 var _ = BeforeSuite(func() {

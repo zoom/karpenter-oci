@@ -44,13 +44,3 @@ yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodeclaims.yaml
 printf -v expr '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.properties.spec.properties.requirements.items.properties.key.x-kubernetes-validations +=
     [{"message": "label domain \\"karpenter.k8s.oracle\\" is restricted", "rule": "%s"}]' "$rule"
 yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodepools.yaml
-
-# nodeclaim
-printf -v expr '.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.requirements.items.properties.key.x-kubernetes-validations +=
-    [{"message": "label domain \\"karpenter.k8s.oracle\\" is restricted", "rule": "%s"}]' "$rule"
-yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodeclaims.yaml
-
-# nodepool
-printf -v expr '.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.properties.spec.properties.requirements.items.properties.key.x-kubernetes-validations +=
-    [{"message": "label domain \\"karpenter.k8s.oracle\\" is restricted", "rule": "%s"}]' "$rule"
-yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodepools.yaml

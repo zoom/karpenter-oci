@@ -1,9 +1,12 @@
+# change the below var to yours before build and apply
+#-------
 CLUSTER_NAME ?= karpenter-oci-test
 CLUSTER_ENDPOINT ?= https://10.0.0.10:6443
 COMPARTMENT_ID ?= ocid1.compartment.oc1..aaaaaaaa
 CLUSTER_DNS ?= 10.96.5.5
 REGION ?= us-ashburn-1
 TENANCY_NAMESPACE ?= tenantnamespace
+#-------
 ## Inject the app version into operator.Version
 LDFLAGS ?= -ldflags=-X=sigs.k8s.io/karpenter/pkg/operator.Version=$(shell git describe --tags --always | cut -d"v" -f2)
 
@@ -132,6 +135,9 @@ snapshot: ## Builds and publishes snapshot release
 
 release: ## Builds and publishes stable release
 	$(WITH_GOFLAGS) ./hack/release/release.sh "ocir.us-ashburn-1.oci.oraclecloud.com/${TENANCY_NAMESPACE}"
+
+toolchain: ## Install developer toolchain
+	./hack/toolchain.sh
 
 tidy: ## Recursively "go mod tidy" on all directories where go.mod exists
 	$(foreach dir,$(MOD_DIRS),cd $(dir) && go mod tidy $(newline))

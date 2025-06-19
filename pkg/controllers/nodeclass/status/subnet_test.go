@@ -52,7 +52,7 @@ var _ = Describe("NodeClass Subnet Status Controller", func() {
 				}},
 		})
 	})
-	It("Should update EC2NodeClass status for Subnets", func() {
+	It("Should update OciNodeClass status for Subnets", func() {
 		ExpectApplied(ctx, env.Client, nodeClass)
 		ExpectObjectReconciled(ctx, env.Client, statusController, nodeClass)
 		nodeClass = ExpectExists(ctx, env.Client, nodeClass)

@@ -52,6 +52,7 @@ type OciNodeClassSpec struct {
 	AgentList     []string              `json:"agentList,omitempty"`
 }
 
+// TODO add verification >50Gi <32TB
 type VolumeAttributes struct {
 	SizeInGBs int64 `json:"sizeInGBs"`
 	VpusPerGB int64 `json:"vpusPerGB"`
@@ -252,7 +253,7 @@ type OciNodeClassList struct {
 	Items           []OciNodeClass `json:"items"`
 }
 
-// We need to bump the EC2NodeClassHashVersion when we make an update to the EC2NodeClass CRD under these conditions:
+// We need to bump the OciNodeClassHashVersion when we make an update to the OciNodeClass CRD under these conditions:
 // 1. A field changes its default value for an existing field that is already hashed
 // 2. A field is added to the hash calculation with an already-set value
 // 3. A field is removed from the hash calculations

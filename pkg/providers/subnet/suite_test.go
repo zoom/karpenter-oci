@@ -105,7 +105,7 @@ var _ = Describe("SubnetProvider", func() {
 				nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{{
 					Name: lo.FromPtr[string](subnet.DisplayName),
 				}}
-				// Call list to request from aws and store in the cache
+				// Call list to request from oci and store in the cache
 				_, err := ociEnv.SubnetProvider.List(ctx, nodeClass)
 				Expect(err).To(BeNil())
 			}

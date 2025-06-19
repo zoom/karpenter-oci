@@ -40,7 +40,3 @@ rule=$(echo "$rule" | tr -s ' ') # remove extra spaces
 printf -v expr '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.properties.metadata.properties.labels.x-kubernetes-validations +=
     [{"message": "label domain \\"karpenter.k8s.oracle\\" is restricted", "rule": "%s"}]' "$rule"
 yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodepools.yaml
-
-printf -v expr '.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.properties.metadata.properties.labels.x-kubernetes-validations +=
-    [{"message": "label domain \\"karpenter.k8s.oracle\\" is restricted", "rule": "%s"}]' "$rule"
-yq eval "${expr}" -i pkg/apis/crds/karpenter.sh_nodepools.yaml

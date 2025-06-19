@@ -15,15 +15,9 @@ limitations under the License.
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/mitchellh/hashstructure/v2"
-	"github.com/samber/lo"
-	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"os"
 	"regexp"
-	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
-	"sigs.k8s.io/karpenter/pkg/apis/v1beta1"
 	"strconv"
 	"strings"
 )
@@ -85,56 +79,6 @@ func FilterMap[K comparable, V any](m map[K]V, f func(K, V) bool) map[K]V {
 	return ret
 }
 
-// GetKubletConfigurationWithNodePool use the most recent version of the kubelet configuration.
-// The priority of fields is listed below:
-// 1.) v1 NodePool kubelet annotation (Showing a user configured using v1beta1 NodePool at some point)
-// 2.) v1 EC2NodeClass will be used (showing a user configured using v1 EC2NodeClass)
-func GetKubletConfigurationWithNodePool(nodePool *v1.NodePool, nodeClass *v1alpha1.OciNodeClass) (*v1alpha1.KubeletConfiguration, error) {
-	if nodePool != nil {
-		if annotation, ok := nodePool.Annotations[v1.KubeletCompatibilityAnnotationKey]; ok {
-			return parseKubeletConfiguration(annotation)
-		}
-	}
-	// DeepCopy the nodeClass.Spec.Kubelet if it exists, so we don't have the chance to mutate it indirectly
-	if nodeClass.Spec.Kubelet != nil {
-		return nodeClass.Spec.Kubelet.DeepCopy(), nil
-	}
-	return nil, nil
-}
-
-func GetKubeletConfigurationWithNodeClaim(nodeClaim *v1.NodeClaim, nodeClass *v1alpha1.OciNodeClass) (*v1alpha1.KubeletConfiguration, error) {
-	if annotation, ok := nodeClaim.Annotations[v1.KubeletCompatibilityAnnotationKey]; ok {
-		return parseKubeletConfiguration(annotation)
-	}
-	// DeepCopy the nodeClass.Spec.Kubelet if it exists, so we don't have the chance to mutate it indirectly
-	if nodeClass.Spec.Kubelet != nil {
-		return nodeClass.Spec.Kubelet.DeepCopy(), nil
-	}
-	return nil, nil
-}
-
-func parseKubeletConfiguration(annotation string) (*v1alpha1.KubeletConfiguration, error) {
-	kubelet := &v1beta1.KubeletConfiguration{}
-	err := json.Unmarshal([]byte(annotation), kubelet)
-	if err != nil {
-		return nil, fmt.Errorf("parsing kubelet config from %s annotation, %w", v1.KubeletCompatibilityAnnotationKey, err)
-	}
-	return &v1alpha1.KubeletConfiguration{
-		ClusterDNS:                  kubelet.ClusterDNS,
-		MaxPods:                     kubelet.MaxPods,
-		PodsPerCore:                 kubelet.PodsPerCore,
-		SystemReserved:              kubelet.SystemReserved,
-		KubeReserved:                kubelet.KubeReserved,
-		EvictionSoft:                kubelet.EvictionSoft,
-		EvictionHard:                kubelet.EvictionHard,
-		EvictionSoftGracePeriod:     kubelet.EvictionSoftGracePeriod,
-		EvictionMaxPodGracePeriod:   kubelet.EvictionMaxPodGracePeriod,
-		ImageGCHighThresholdPercent: kubelet.ImageGCHighThresholdPercent,
-		ImageGCLowThresholdPercent:  kubelet.ImageGCLowThresholdPercent,
-		CPUCFSQuota:                 kubelet.CPUCFSQuota,
-	}, nil
-}
-
 // WithDefaultFloat64 returns the float64 value of the supplied environment variable or, if not present,
 // the supplied default value. If the float64 conversion fails, returns the default
 func WithDefaultFloat64(key string, def float64) float64 {
@@ -147,28 +91,4 @@ func WithDefaultFloat64(key string, def float64) float64 {
 		return def
 	}
 	return f
-}
-
-func GetHashKubeletWithNodeClaim(nodeClaim *v1.NodeClaim, nodeClass *v1alpha1.OciNodeClass) (string, error) {
-	kubelet, err := GetKubeletConfigurationWithNodeClaim(nodeClaim, nodeClass)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprint(lo.Must(hashstructure.Hash(kubelet, hashstructure.FormatV2, &hashstructure.HashOptions{
-		SlicesAsSets:    true,
-		IgnoreZeroValue: true,
-		ZeroNil:         true,
-	}))), nil
-}
-
-func GetHashKubeletWithNodePool(nodePool *v1.NodePool, nodeClass *v1alpha1.OciNodeClass) (string, error) {
-	kubelet, err := GetKubletConfigurationWithNodePool(nodePool, nodeClass)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprint(lo.Must(hashstructure.Hash(kubelet, hashstructure.FormatV2, &hashstructure.HashOptions{
-		SlicesAsSets:    true,
-		IgnoreZeroValue: true,
-		ZeroNil:         true,
-	}))), nil
 }

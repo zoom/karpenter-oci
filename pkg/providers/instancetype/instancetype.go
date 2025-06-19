@@ -48,14 +48,14 @@ type Provider struct {
 	mu                   sync.Mutex
 	cache                *cache.Cache
 	unavailableOfferings *ocicache.UnavailableOfferings
-	priceSyncer          *pricing.PriceListSyncer
+	priceProvider        pricing.Provider
 }
 
-func NewProvider(region string, compClient api.ComputeClient, cache *cache.Cache, unavailableOfferings *ocicache.UnavailableOfferings, priceSyncer *pricing.PriceListSyncer) *Provider {
-	return &Provider{region: region, compClient: compClient, cache: cache, unavailableOfferings: unavailableOfferings, priceSyncer: priceSyncer}
+func NewProvider(region string, compClient api.ComputeClient, cache *cache.Cache, unavailableOfferings *ocicache.UnavailableOfferings, priceProvide pricing.Provider) *Provider {
+	return &Provider{region: region, compClient: compClient, cache: cache, unavailableOfferings: unavailableOfferings, priceProvider: priceProvide}
 }
 
-func (p *Provider) List(ctx context.Context, kc *v1alpha1.KubeletConfiguration, nodeClass *v1alpha1.OciNodeClass) ([]*cloudprovider.InstanceType, error) {
+func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]*cloudprovider.InstanceType, error) {
 
 	wrapShapes, err := p.ListInstanceType(ctx)
 	if err != nil {
@@ -64,27 +64,22 @@ func (p *Provider) List(ctx context.Context, kc *v1alpha1.KubeletConfiguration, 
 	instanceTypes := make([]*cloudprovider.InstanceType, 0)
 	for _, wrapped := range wrapShapes {
 		// todo offers
-		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, kc, p.region, wrapped.AvailableDomains, p.CreateOfferings(wrapped, sets.New(wrapped.AvailableDomains...))))
+		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, p.region, wrapped.AvailableDomains, p.CreateOfferings(wrapped, sets.New(wrapped.AvailableDomains...))))
 	}
 	return instanceTypes, nil
 
 }
 
-func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []cloudprovider.Offering {
-	var offerings []cloudprovider.Offering
-
-	var priceCatalog *pricing.PriceCatalog
-	if p.priceSyncer != nil {
-		priceCatalog = &p.priceSyncer.PriceCatalog
-	}
+func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
+	var offerings []*cloudprovider.Offering
 
 	// only on-demand support
 	for zone := range zones {
 		// exclude any offerings that have recently seen an insufficient capacity error
 		isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeOnDemand) // todo support pricing calculate
 
-		price := float64(pricing.Calculate(shape, priceCatalog))
-		offerings = append(offerings, cloudprovider.Offering{
+		price := float64(p.priceProvider.Price(shape))
+		offerings = append(offerings, &cloudprovider.Offering{
 			Requirements: scheduling.NewRequirements(
 				scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, v1.CapacityTypeOnDemand),
 				scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
@@ -180,10 +175,11 @@ func toWrapShape(ctx context.Context, shapes []core.Shape, ad string) []*interna
 			wrapShapes = append(wrapShapes, &internalmodel.WrapShape{
 				Shape: shape,
 				// ocpus is twice vcpu
-				CalcCpu:          int64(*shape.Ocpus) * 2,
-				CalMemInGBs:      int64(*shape.MemoryInGBs),
-				AvailableDomains: []string{ad},
-				CalMaxVnic:       int64(*shape.MaxVnicAttachments),
+				CalcCpu:               int64(*shape.Ocpus) * 2,
+				CalMemInGBs:           int64(*shape.MemoryInGBs),
+				AvailableDomains:      []string{ad},
+				CalMaxVnic:            int64(*shape.MaxVnicAttachments),
+				CalMaxBandwidthInGbps: int64(*shape.NetworkingBandwidthInGbps),
 			})
 		}
 	}
@@ -223,12 +219,20 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 			} else {
 				calMaxVnic = int64(*shape.MaxVnicAttachments)
 			}
+			var calMaxBandwidth int64
+			if shape.NetworkingBandwidthOptions != nil && shape.NetworkingBandwidthOptions.DefaultPerOcpuInGbps != nil {
+				calMaxBandwidth = int64(*shape.NetworkingBandwidthOptions.DefaultPerOcpuInGbps) * int64(cpus)
+				calMaxBandwidth = max(int64(*shape.NetworkingBandwidthOptions.MinInGbps), min(int64(*shape.NetworkingBandwidthOptions.MaxInGbps), calMaxBandwidth))
+			} else {
+				calMaxBandwidth = int64(*shape.NetworkingBandwidthInGbps)
+			}
 			wrapShapes = append(wrapShapes, &internalmodel.WrapShape{
-				Shape:            shape,
-				CalcCpu:          int64(cpus) * 2,
-				CalMemInGBs:      int64(memInGBs),
-				AvailableDomains: []string{ad},
-				CalMaxVnic:       calMaxVnic,
+				Shape:                 shape,
+				CalcCpu:               int64(cpus) * 2,
+				CalMemInGBs:           int64(memInGBs),
+				AvailableDomains:      []string{ad},
+				CalMaxVnic:            calMaxVnic,
+				CalMaxBandwidthInGbps: calMaxBandwidth,
 			})
 		}
 	}

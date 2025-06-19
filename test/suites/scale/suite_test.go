@@ -12,12 +12,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pricing
+package scale_test
 
 import (
-	"math"
+	"testing"
+	"time"
+
+	"github.com/zoom/karpenter-oci/test/pkg/environment/oci"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func floatEqual(a, b, epsilon float64) bool {
-	return math.Abs(a-b) < epsilon
+var env *oci.Environment
+
+func TestScale(t *testing.T) {
+	RegisterFailHandler(Fail)
+	BeforeSuite(func() {
+		env = oci.NewEnvironment(t)
+		SetDefaultEventuallyTimeout(time.Hour)
+	})
+	AfterSuite(func() {
+		env.Stop()
+	})
+	RunSpecs(t, "Scale")
 }
+
+var _ = BeforeEach(func() {
+	env.BeforeEach()
+})
+var _ = AfterEach(func() { env.Cleanup() })
+var _ = AfterEach(func() {
+	env.AfterEach()
+})

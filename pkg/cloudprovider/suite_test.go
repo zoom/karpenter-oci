@@ -74,7 +74,7 @@ var _ = BeforeSuite(func() {
 	recorder = events.NewRecorder(&record.FakeRecorder{})
 	cloudProvider = New(ociEnv.InstanceTypesProvider, ociEnv.InstanceProvider, recorder,
 		env.Client, ociEnv.AMIProvider)
-	cluster = state.NewCluster(fakeClock, env.Client)
+	cluster = state.NewCluster(fakeClock, env.Client, cloudProvider)
 	prov = provisioning.NewProvisioner(env.Client, recorder, cloudProvider, cluster, fakeClock)
 })
 

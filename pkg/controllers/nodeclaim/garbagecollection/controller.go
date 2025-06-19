@@ -50,7 +50,7 @@ func NewController(kubeClient client.Client, cloudProvider cloudprovider.CloudPr
 }
 
 func (c *Controller) Name() string {
-	return "nodeclaim.garbagecollection"
+	return "instance.garbagecollection"
 }
 
 func (c *Controller) Reconcile(ctx context.Context) (reconcile.Result, error) {
@@ -140,7 +140,7 @@ func (c *Controller) garbageNode(ctx context.Context, nodeClaim *v1core.NodeClai
 
 func (c *Controller) Register(_ context.Context, m manager.Manager) error {
 	return controllerruntime.NewControllerManagedBy(m).
-		Named("nodeclaim.garbagecollection").
+		Named("instance.garbagecollection").
 		WatchesRawSource(singleton.Source()).
 		Complete(singleton.AsReconciler(c))
 }

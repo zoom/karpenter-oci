@@ -18,7 +18,7 @@ import "time"
 
 const (
 	DefaultTTL = time.Minute
-	// InstanceTypesAndZonesTTL is the time before we refresh instance types and zones at EC2
+	// InstanceTypesAndZonesTTL is the time before we refresh instance types and zones at Oci instance
 	InstanceTypesAndZonesTTL = 5 * time.Minute
 
 	// UnavailableOfferingsTTL is the time before offerings that were marked as unavailable
