@@ -15,6 +15,7 @@ limitations under the License.
 package pricing
 
 import (
+	"context"
 	"testing"
 )
 
@@ -22,10 +23,7 @@ func TestPriceListSyncer_Start(t *testing.T) {
 
 	endpint := "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/"
 
-	var period int64 = 60 * 2
-
-	syncer := NewPriceListSyncer(endpint, period, true)
-	_ = syncer.Start()
+	syncer := NewDefaultProvider(context.Background(), endpint)
 
 	//time.Sleep(20 * time.Second)
 
@@ -136,7 +134,7 @@ func TestPriceListSyncer_Start(t *testing.T) {
 	}
 
 	for _, testcase := range testcases {
-		item := syncer.PriceCatalog.FindPriceItems(testcase.Shape)
+		item := syncer.priceCatalog.FindPriceItems(testcase.Shape)
 		find := len(item) != 0
 		if testcase.Found != find {
 			t.Errorf("it is %v that %s can be found, but actual %v\n", testcase.Found, testcase.Shape, find)

@@ -20,6 +20,7 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/cache"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
@@ -198,15 +199,16 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 	instanceType := sortedInstanceType[0]
 	// Zone - ideally random/spread from requested zones that support given Priority
 	requestedZones := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...).Get(v1.LabelTopologyZone)
-	priorityOfferings := lo.Filter(instanceType.Offerings.Available(), func(o corecloudprovider.Offering, _ int) bool {
+	priorityOfferings := lo.Filter(instanceType.Offerings.Available(), func(o *corecloudprovider.Offering, _ int) bool {
 		return requestedZones.Has(o.Requirements.Get(v1.LabelTopologyZone).Any())
 	})
 	if len(priorityOfferings) == 0 {
 		return nil, ""
 	}
-	zonesWithPriority := lo.Shuffle(lo.Map(priorityOfferings, func(o corecloudprovider.Offering, _ int) string {
+	zonesWithPriority := lo.Map(priorityOfferings, func(o *corecloudprovider.Offering, _ int) string {
 		return o.Requirements.Get(v1.LabelTopologyZone).Any()
-	}))
+	})
+	mutable.Shuffle(zonesWithPriority)
 	return instanceType, zonesWithPriority[0]
 }
 
@@ -215,11 +217,12 @@ func (p *Provider) Delete(ctx context.Context, id string) error {
 		InstanceId:                         common.String(id),
 		PreserveBootVolume:                 common.Bool(false),
 		PreserveDataVolumesCreatedAtLaunch: common.Bool(false)}
-	if resp, err := p.compClient.TerminateInstance(ctx, req); err != nil {
-		if resp.HTTPResponse().StatusCode == http.StatusNotFound {
-			return corecloudprovider.NewNodeClaimNotFoundError(fmt.Errorf("instance already terminated"))
-		}
+	resp, err := p.compClient.TerminateInstance(ctx, req)
+	if err != nil {
 		return err
+	}
+	if resp.HTTPResponse().StatusCode == http.StatusNotFound || resp.HTTPResponse().StatusCode == http.StatusNoContent {
+		return corecloudprovider.NewNodeClaimNotFoundError(fmt.Errorf("instance already terminated"))
 	}
 	return nil
 }

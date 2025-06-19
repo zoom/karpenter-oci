@@ -69,7 +69,7 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
-	ctx = options.ToContext(ctx, test.Options(test.OptionsFields{AvailableDomains: []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"}}))
+	ctx = options.ToContext(ctx, test.Options(test.OptionsFields{ClusterName: utils.String("test-cluster"), AvailableDomains: []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"}}))
 	ociEnv.Reset()
 })
 
@@ -80,11 +80,14 @@ var _ = Describe("InstanceProvider", func() {
 	BeforeEach(func() {
 		nodeClass = test.OciNodeClass()
 		nodePool = coretest.NodePool(v1.NodePool{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-pool"},
 			Spec: v1.NodePoolSpec{
 				Template: v1.NodeClaimTemplate{
 					Spec: v1.NodeClaimTemplateSpec{
 						NodeClassRef: &v1.NodeClassReference{
-							Name: nodeClass.Name,
+							Name:  nodeClass.Name,
+							Group: v1alpha1.Group,
+							Kind:  "OciNodeClass",
 						},
 					},
 				},
@@ -98,7 +101,9 @@ var _ = Describe("InstanceProvider", func() {
 			},
 			Spec: v1.NodeClaimSpec{
 				NodeClassRef: &v1.NodeClassReference{
-					Name: nodeClass.Name,
+					Name:  nodeClass.Name,
+					Group: v1alpha1.Group,
+					Kind:  "OciNodeClass",
 				},
 			},
 		})

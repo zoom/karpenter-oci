@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/providers/imagefamily/bootstrap"
-	"github.com/zoom/karpenter-oci/pkg/utils"
 	core "k8s.io/api/core/v1"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
@@ -104,12 +103,9 @@ func GetImageFamily(imageFamily string, options *Options) ImageFamily {
 }
 
 func (r Resolver) resolveLaunchTemplate(nodeClass *v1alpha1.OciNodeClass, nodeClaim *v1.NodeClaim, instanceType *cloudprovider.InstanceType, imageFamily ImageFamily, imageId string, options *Options) (*LaunchTemplate, error) {
-	kubeletConfig, err := utils.GetKubeletConfigurationWithNodeClaim(nodeClaim, nodeClass)
-	if err != nil {
-		return nil, fmt.Errorf("resolving kubelet configuration, %w", err)
-	}
-	if kubeletConfig == nil {
-		kubeletConfig = &v1alpha1.KubeletConfiguration{}
+	kubeletConfig := &v1alpha1.KubeletConfiguration{}
+	if nodeClass.Spec.Kubelet != nil {
+		kubeletConfig = nodeClass.Spec.Kubelet.DeepCopy()
 	}
 	// nolint:gosec
 	// We know that it's not possible to have values that would overflow int32 here since we control

@@ -133,6 +133,9 @@ snapshot: ## Builds and publishes snapshot release
 release: ## Builds and publishes stable release
 	$(WITH_GOFLAGS) ./hack/release/release.sh "ocir.us-ashburn-1.oci.oraclecloud.com/${TENANCY_NAMESPACE}"
 
+toolchain: ## Install developer toolchain
+	./hack/toolchain.sh
+
 tidy: ## Recursively "go mod tidy" on all directories where go.mod exists
 	$(foreach dir,$(MOD_DIRS),cd $(dir) && go mod tidy $(newline))
 

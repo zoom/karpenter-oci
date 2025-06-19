@@ -15,6 +15,7 @@ limitations under the License.
 package pricing
 
 import (
+	"context"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"testing"
@@ -162,10 +163,7 @@ func TestPrice(t *testing.T) {
 	endpint := "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/"
 	//endpint := "http://localhost:8888/price.json"
 
-	var period int64 = 60 * 2
-
-	syncer := NewPriceListSyncer(endpint, period, true)
-	_ = syncer.Start()
+	syncer := NewDefaultProvider(context.Background(), endpint)
 
 	time.Sleep(18 * time.Second)
 
@@ -182,9 +180,8 @@ func TestPrice(t *testing.T) {
 			wrapShape.CalMemInGBs = int64(*tc.Shape.MemoryInGBs)
 
 		}
-		price := Calculate(wrapShape, &syncer.PriceCatalog)
-		//if price != tc.Price {
-		if !floatEqual(float64(price), float64(tc.Price), 1e-6) {
+		price := syncer.Price(wrapShape)
+		if price != tc.Price {
 			t.Errorf("%v,expected: %+v, actual: %+v", *tc.Shape.Shape, tc.Price, price)
 		}
 	}
