@@ -30,6 +30,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	corev1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	corecloudprovider "sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
@@ -77,9 +78,11 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return strings.Contains(item, zone)
 	})
 	if !ok {
+		log.FromContext(ctx).V(1).Error(fmt.Errorf("failed to find a zone for %s, available az: %s", zone, options.FromContext(ctx).AvailableDomains), "")
 		return nil, fmt.Errorf("failed to find a zone for %s, available az: %s", zone, options.FromContext(ctx).AvailableDomains)
 	}
 	if instanceType == nil {
+		log.FromContext(ctx).V(1).Error(corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available")), "")
 		return nil, corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available"))
 	}
 	blockDevices := lo.Map[*v1alpha1.VolumeAttributes, core.LaunchAttachVolumeDetails](nodeClass.Spec.BlockDevices,
