@@ -168,6 +168,7 @@ func (p *Provider) findLeastUtilizedSubnet(ctx context.Context, nodeClass *v1alp
 	}
 	var subnet *core.Subnet
 	availableIPCount := 0
+	subnet = &subnets[0]
 	for i := range subnets {
 		count, err1 := p.subnetProvider.GetSubnetAvailableIPCount(ctx, &subnets[i])
 		if err1 != nil {
