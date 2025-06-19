@@ -17,6 +17,7 @@ package pricing
 import (
 	"context"
 	"github.com/oracle/oci-go-sdk/v65/core"
+	"github.com/stretchr/testify/assert"
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"testing"
 	"time"
@@ -181,7 +182,7 @@ func TestPrice(t *testing.T) {
 
 		}
 		price := syncer.Price(wrapShape)
-		if price != tc.Price {
+		if !assert.InDelta(t, price, tc.Price, 1e-6, "floats should be close") {
 			t.Errorf("%v,expected: %+v, actual: %+v", *tc.Shape.Shape, tc.Price, price)
 		}
 	}

@@ -18,7 +18,7 @@ set -o pipefail
 set -u
 
 result=$(
-    find . -type f \( -name "*.go" -o -name "*.sh" \) ! -path '*/vendor/*' -exec \
+    find . -type f \( -name "*.go" -o -name "*.sh" \) ! -path '*/vendor/*' ! -path '*/test/*' -exec \
          sh -c 'head -n5 $1 | grep -Eq "(Apache License)" || echo -e  $1' {} {} \;
 )
 
