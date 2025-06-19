@@ -134,7 +134,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	}}
 	// Set preemptible flag if needed
 	if capacityType == utils.CapacityTypePreemptible {
-		req.LaunchInstanceDetails.PreemptibleInstanceConfig = &core.PreemptibleInstanceConfigDetails{
+		req.PreemptibleInstanceConfig = &core.PreemptibleInstanceConfigDetails{
 			PreemptionAction: core.TerminatePreemptionAction{
 				PreserveBootVolume: common.Bool(false),
 			},
