@@ -85,6 +85,7 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 			preemptiblePrice := basePrice * 0.5
 
 			offerings = append(offerings, &cloudprovider.Offering{
+
 				Requirements: scheduling.NewRequirements(
 					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, utils.CapacityTypePreemptible),
 					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
