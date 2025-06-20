@@ -23,6 +23,8 @@ import (
 	"os"
 	coreoptions "sigs.k8s.io/karpenter/pkg/operator/options"
 	"sigs.k8s.io/karpenter/pkg/utils/env"
+	"strconv"
+	"strings"
 )
 
 func init() {
@@ -49,6 +51,14 @@ type Options struct {
 	UseLocalPriceList       bool
 }
 
+func generateDefaultFlexCpuConstrainList() string {
+	var values []string
+	for i := 1; i <= 128; i++ {
+		values = append(values, strconv.Itoa(i))
+	}
+	return strings.Join(values, ",")
+}
+
 func (o *Options) AddFlags(fs *coreoptions.FlagSet) {
 	fs.StringVar(&o.ClusterName, "cluster-name", env.WithDefaultString("CLUSTER_NAME", ""), "[REQUIRED] The kubernetes cluster name for resource discovery.")
 	fs.StringVar(&o.ClusterEndpoint, "cluster-endpoint", env.WithDefaultString("CLUSTER_ENDPOINT", ""), "The external kubernetes cluster endpoint for new nodes to connect with. If not specified, will discover the cluster endpoint using DescribeCluster API.")
@@ -57,7 +67,11 @@ func (o *Options) AddFlags(fs *coreoptions.FlagSet) {
 	fs.StringVar(&o.BootStrapToken, "cluster-bootstrap-token", env.WithDefaultString("CLUSTER_BOOTSTRAP_TOKEN", ""), "Cluster bootstrap token for nodes to use for TLS connections with the API server, use bootstrap token generate kube config")
 	fs.Float64Var(&o.VMMemoryOverheadPercent, "vm-memory-overhead-percent", utils.WithDefaultFloat64("VM_MEMORY_OVERHEAD_PERCENT", 0.0), "The VM memory overhead as a percent that will be subtracted from the total memory for all instance types.")
 	fs.StringVar(&o.FlexCpuMemRatios, "flex-cpu-mem-ratios", env.WithDefaultString("FLEX_CPU_MEM_RATIOS", "4"), "the ratios of vcpu and mem, eg FLEX_CPU_MEM_RATIOS=2,4, if create flex instance with 2 cores(1 ocpu), mem should be 4Gi or 8Gi")
-	fs.StringVar(&o.FlexCpuConstrainList, "flex-cpu-constrain-list", env.WithDefaultString("FLEX_CPU_CONSTRAIN_LIST", "1,2,4,8,16,32,48,64,96,128"), "to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu")
+
+	// just need to set cpu constraints in nodepool yaml
+	defaultFlexCpuConstrainList := env.WithDefaultString("FLEX_CPU_CONSTRAIN_LIST", generateDefaultFlexCpuConstrainList())
+	fs.StringVar(&o.FlexCpuConstrainList, "flex-cpu-constrain-list", defaultFlexCpuConstrainList, "to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu")
+
 	fs.StringVar(&o.CompartmentId, "compartment-id", env.WithDefaultString("COMPARTMENT_ID", ""), "[REQUIRED] The compartment id to create and list instances")
 	fs.StringVar(&o.TagNamespace, "tag-namespace", env.WithDefaultString("TAG_NAMESPACE", "oke-karpenter-ns"), "[REQUIRED] The tag namespace used to create and list instances")
 	fs.StringVar(&o.OciAuthMethods, "oci-auth-methods", env.WithDefaultString("OCI_AUTH_METHODS", "OKE"), "[REQUIRED] the auth method to access oracle cloud resource, support OKE,API_KEY,SESSION,INSTANCE_PRINCIPAL")

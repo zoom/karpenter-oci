@@ -17,6 +17,10 @@ package instancetype
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/patrickmn/go-cache"
@@ -33,14 +37,13 @@ import (
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 const (
 	InstanceTypesCacheKey = "types"
 )
+
+var supportInstanceTypes = []string{v1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible}
 
 type Provider struct {
 	region               string
@@ -73,32 +76,41 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
 	var offerings []*cloudprovider.Offering
 
-	// only on-demand support
 	for zone := range zones {
-		// exclude any offerings that have recently seen an insufficient capacity error
-		isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeOnDemand) // todo support pricing calculate
+		for _, capacityType := range supportInstanceTypes {
+			// exclude any offerings that have recently seen an insufficient capacity error
+			isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, capacityType)
 
-		price := float64(p.priceProvider.Price(shape))
-		offerings = append(offerings, &cloudprovider.Offering{
-			Requirements: scheduling.NewRequirements(
-				scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, v1.CapacityTypeOnDemand),
-				scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
-			),
-			Price:     price,
-			Available: !isUnavailable,
-		})
-		// metric
-		instanceTypeOfferingAvailable.With(prometheus.Labels{
-			instanceTypeLabel: *shape.Shape.Shape,
-			capacityTypeLabel: v1.CapacityTypeOnDemand,
-			zoneLabel:         zone,
-		}).Set(float64(lo.Ternary(!isUnavailable, 1, 0)))
+			price := float64(p.priceProvider.Price(shape))
+			if capacityType == v1alpha1.CapacityTypePreemptible {
+				if strings.HasPrefix(*shape.Shape.Shape, "VM") {
+					price = price * 0.5
+				} else {
+					isUnavailable = true
+				}
+			}
+			offerings = append(offerings, &cloudprovider.Offering{
+				Requirements: scheduling.NewRequirements(
+					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, capacityType),
+					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
+				),
+				Price:     price,
+				Available: !isUnavailable,
+			})
+			// metric
+			// add ondemand instances metrics
+			instanceTypeOfferingAvailable.With(prometheus.Labels{
+				instanceTypeLabel: *shape.Shape.Shape,
+				capacityTypeLabel: capacityType,
+				zoneLabel:         zone,
+			}).Set(float64(lo.Ternary(!isUnavailable, 1, 0)))
 
-		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
-			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
-			capacityTypeLabel: v1.CapacityTypeOnDemand,
-			zoneLabel:         zone,
-		}).Set(price)
+			instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
+				instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
+				capacityTypeLabel: capacityType,
+				zoneLabel:         zone,
+			}).Set(price)
+		}
 	}
 	return offerings
 }

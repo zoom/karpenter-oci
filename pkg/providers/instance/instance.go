@@ -31,6 +31,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	corev1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	corecloudprovider "sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
@@ -78,9 +79,11 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return strings.Contains(item, zone)
 	})
 	if !ok {
+		log.FromContext(ctx).V(1).Error(fmt.Errorf("failed to find a zone for %s, available az: %s", zone, options.FromContext(ctx).AvailableDomains), "")
 		return nil, fmt.Errorf("failed to find a zone for %s, available az: %s", zone, options.FromContext(ctx).AvailableDomains)
 	}
 	if instanceType == nil {
+		log.FromContext(ctx).V(1).Error(corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available")), "")
 		return nil, corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available"))
 	}
 	blockDevices := lo.Map[*v1alpha1.VolumeAttributes, core.LaunchAttachVolumeDetails](nodeClass.Spec.BlockDevices,
@@ -107,7 +110,12 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return nil, err
 	}
 	metadata["user_data"] = userdata
-
+	// Determine capacity type based on node requirements
+	capacityType := corev1.CapacityTypeOnDemand
+	nodeReqs := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...)
+	if nodeReqs.Get(corev1.CapacityTypeLabelKey).Has(v1alpha1.CapacityTypePreemptible) {
+		capacityType = v1alpha1.CapacityTypePreemptible
+	}
 	req := core.LaunchInstanceRequest{LaunchInstanceDetails: core.LaunchInstanceDetails{
 		// todo subnet id balance
 		CreateVnicDetails:       &core.CreateVnicDetails{SubnetId: subnets[0].Id, NsgIds: sgsIds},
@@ -124,6 +132,14 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		Metadata:           metadata,
 		InstanceOptions:    &core.InstanceOptions{AreLegacyImdsEndpointsDisabled: common.Bool(true)},
 	}}
+	// Set preemptible flag if needed
+	if capacityType == v1alpha1.CapacityTypePreemptible {
+		req.PreemptibleInstanceConfig = &core.PreemptibleInstanceConfigDetails{
+			PreemptionAction: core.TerminatePreemptionAction{
+				PreserveBootVolume: common.Bool(false),
+			},
+		}
+	}
 
 	// for flexible instance, specify the ocpu and memory
 	if instanceType.Requirements.Get(v1alpha1.LabelIsFlexible).Has("true") {
@@ -195,6 +211,7 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 	if len(instanceTypes) == 0 {
 		return nil, ""
 	}
+
 	sortedInstanceType := instanceTypes.OrderByPrice(scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...))
 	instanceType := sortedInstanceType[0]
 	// Zone - ideally random/spread from requested zones that support given Priority

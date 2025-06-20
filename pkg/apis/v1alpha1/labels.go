@@ -59,6 +59,8 @@ var (
 )
 
 const (
+	CapacityTypePreemptible = "preemptible"
+
 	Ubuntu2204ImageFamily     = "Ubuntu2204"
 	OracleOKELinuxImageFamily = "OracleOKELinux"
 	CustomImageFamily         = "Custom"
