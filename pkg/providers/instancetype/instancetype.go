@@ -72,15 +72,10 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 
 }
 
-func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []cloudprovider.Offering {
-	var offerings []cloudprovider.Offering
+func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
+	var offerings []*cloudprovider.Offering
 
-	var priceCatalog *pricing.PriceCatalog
-	if p.priceSyncer != nil {
-		priceCatalog = &p.priceSyncer.PriceCatalog
-	}
-	basePrice := float64(pricing.Calculate(shape, priceCatalog))
-
+	basePrice := float64(p.priceProvider.Price(shape))
 	// only on-demand support
 	for zone := range zones {
 		// Add preemptible offering with lower price (higher priority)
@@ -89,7 +84,8 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 			// Lower price means higher priority when sorting by price
 			preemptiblePrice := basePrice * 0.5
 
-			offerings = append(offerings, cloudprovider.Offering{
+			offerings = append(offerings, &cloudprovider.Offering{
+
 				Requirements: scheduling.NewRequirements(
 					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, utils.CapacityTypePreemptible),
 					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),

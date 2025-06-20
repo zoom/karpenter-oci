@@ -660,7 +660,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-2"},
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-3"},
 			})
-        	ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", utils.CapacityTypePreemptible)
+
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", utils.CapacityTypePreemptible)
 			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", utils.CapacityTypePreemptible)
 			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", utils.CapacityTypePreemptible)
 
