@@ -320,7 +320,7 @@ func (c *CloudProvider) instanceToNodeClaim(ctx context.Context, i *core.Instanc
 
 	labels[corev1.CapacityTypeLabelKey] = corev1.CapacityTypeOnDemand
 	if i.PreemptibleInstanceConfig != nil {
-		labels[corev1.CapacityTypeLabelKey] = utils.CapacityTypePreemptible
+		labels[corev1.CapacityTypeLabelKey] = v1alpha1.CapacityTypePreemptible
 	}
 	if v, ok := i.DefinedTags[options.FromContext(ctx).TagNamespace][utils.SafeTagKey(corev1.NodePoolLabelKey)]; ok {
 		labels[corev1.NodePoolLabelKey] = v.(string)

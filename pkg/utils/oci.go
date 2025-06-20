@@ -23,9 +23,6 @@ import (
 	"strings"
 )
 
-// define a constant for preemptible instance
-const CapacityTypePreemptible = "preemptible"
-
 func ConvertLaunchOptions(m *v1alpha1.LaunchOptions) (*core.LaunchOptions, error) {
 	errMessage := []string{}
 	ociLaunchOptions := &core.LaunchOptions{}

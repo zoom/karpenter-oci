@@ -53,7 +53,7 @@ type Options struct {
 
 func generateDefaultFlexCpuConstrainList() string {
 	var values []string
-	for i := 1; i <= 256; i++ {
+	for i := 1; i <= 128; i++ {
 		values = append(values, strconv.Itoa(i))
 	}
 	return strings.Join(values, ",")

@@ -601,8 +601,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: &v1.NodeAffinity{PreferredDuringSchedulingIgnoredDuringExecution: []v1.PreferredSchedulingTerm{
 				{
 					Weight: 1, Preference: v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{
-					{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
-				}},
+						{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
+					}},
 				},
 			}}}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
@@ -660,9 +660,9 @@ var _ = Describe("InstanceTypeProvider", func() {
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-3"},
 			})
 
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", utils.CapacityTypePreemptible)
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", utils.CapacityTypePreemptible)
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", utils.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", v1alpha1.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", v1alpha1.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", v1alpha1.CapacityTypePreemptible)
 
 			nodePool.Spec.Template.Spec.Requirements = nil
 			nodePool.Spec.Template.Spec.Requirements = append(nodePool.Spec.Template.Spec.Requirements, karpv1.NodeSelectorRequirementWithMinValues{
@@ -771,8 +771,8 @@ var _ = Describe("InstanceTypeProvider", func() {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: &v1.NodeAffinity{PreferredDuringSchedulingIgnoredDuringExecution: []v1.PreferredSchedulingTerm{
 				{
 					Weight: 1, Preference: v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{
-					{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
-				}},
+						{Key: v1.LabelTopologyZone, Operator: v1.NodeSelectorOpIn, Values: []string{"US-ASHBURN-AD-1"}},
+					}},
 				},
 			}}}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)

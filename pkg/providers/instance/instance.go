@@ -113,8 +113,8 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	// Determine capacity type based on node requirements
 	capacityType := corev1.CapacityTypeOnDemand
 	nodeReqs := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...)
-	if nodeReqs.Get(corev1.CapacityTypeLabelKey).Has(utils.CapacityTypePreemptible) {
-		capacityType = utils.CapacityTypePreemptible
+	if nodeReqs.Get(corev1.CapacityTypeLabelKey).Has(v1alpha1.CapacityTypePreemptible) {
+		capacityType = v1alpha1.CapacityTypePreemptible
 	}
 	req := core.LaunchInstanceRequest{LaunchInstanceDetails: core.LaunchInstanceDetails{
 		// todo subnet id balance
@@ -133,7 +133,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		InstanceOptions:    &core.InstanceOptions{AreLegacyImdsEndpointsDisabled: common.Bool(true)},
 	}}
 	// Set preemptible flag if needed
-	if capacityType == utils.CapacityTypePreemptible {
+	if capacityType == v1alpha1.CapacityTypePreemptible {
 		req.PreemptibleInstanceConfig = &core.PreemptibleInstanceConfigDetails{
 			PreemptionAction: core.TerminatePreemptionAction{
 				PreserveBootVolume: common.Bool(false),
