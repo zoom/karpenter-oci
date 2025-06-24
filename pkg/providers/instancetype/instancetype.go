@@ -3,7 +3,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,6 +32,7 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"github.com/zoom/karpenter-oci/pkg/providers/pricing"
+	"github.com/zoom/karpenter-oci/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
@@ -83,9 +84,12 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 
 			price := float64(p.priceProvider.Price(shape))
 			if capacityType == v1alpha1.CapacityTypePreemptible {
+				// Filters shapes that preemptible is supported
 				if strings.HasPrefix(*shape.Shape.Shape, "VM") {
+					// Preemptible is 50% OFF of on-demand price
 					price = price * 0.5
 				} else {
+					// Non-VM shapes aren't supported as preemptible
 					isUnavailable = true
 				}
 			}
@@ -202,6 +206,13 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 	flexCpuMemRatios := strings.Split(options.FromContext(ctx).FlexCpuMemRatios, ",")
 	constrainCpus := strings.Split(options.FromContext(ctx).FlexCpuConstrainList, ",")
 	wrapShapes := make([]*internalmodel.WrapShape, 0)
+
+	// Determine OCPU-to-vCPU multiplier based on shape
+	shapeName := *shape.Shape
+	ratioFactor := 2
+	if utils.IsA1FlexShape(shapeName) {
+		ratioFactor = 1
+	}
 	for i := 0; i < len(constrainCpus); i++ {
 		for _, ratio := range flexCpuMemRatios {
 			ratioInt, covErr := strconv.Atoi(ratio)
@@ -212,7 +223,7 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 			if covErr != nil {
 				continue
 			}
-			memInGBs := cpus * 2 * ratioInt
+			memInGBs := cpus * ratioFactor * ratioInt
 			if cpus < int(*shape.OcpuOptions.Min) || memInGBs < int(*shape.MemoryOptions.MinInGBs) {
 				continue
 			}
@@ -240,7 +251,7 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 			}
 			wrapShapes = append(wrapShapes, &internalmodel.WrapShape{
 				Shape:                 shape,
-				CalcCpu:               int64(cpus) * 2,
+				CalcCpu:               int64(cpus * ratioFactor),
 				CalMemInGBs:           int64(memInGBs),
 				AvailableDomains:      []string{ad},
 				CalMaxVnic:            calMaxVnic,
