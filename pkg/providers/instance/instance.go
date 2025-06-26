@@ -150,9 +150,14 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		}
 		vcpu, _ := strconv.Atoi(vcpuVal[0])
 		memoryInMi, _ := strconv.Atoi(memoryInMiVal[0])
+		// Determine if it's an A1 shape (1 OCPU = 1 vCPU), otherwise assume 1 OCPU = 2 vCPU
+		ocpus := float32(vcpu)
+			if !utils.IsA1FlexShape(instanceType.Name) {
+			    ocpus = ocpus / 2.0
+			}
 		req.ShapeConfig = &core.LaunchInstanceShapeConfigDetails{
 			MemoryInGBs: common.Float32(float32(memoryInMi / 1024)),
-			Ocpus:       common.Float32(float32(vcpu / 2.0))}
+			Ocpus:       common.Float32(float32(ocpus))}
 	}
 	if nodeClass.Spec.LaunchOptions != nil {
 		launchOpts, err := utils.ConvertLaunchOptions(nodeClass.Spec.LaunchOptions)

@@ -3,7 +3,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -91,4 +91,9 @@ func WithDefaultFloat64(key string, def float64) float64 {
 		return def
 	}
 	return f
+}
+
+// IsA1FlexShape returns true for VM.Standard.A1.Flex shapes (1 OCPU=1 vCPU)
+func IsA1FlexShape(shapeName string) bool {
+	return strings.Contains(strings.ToLower(shapeName), "a1.flex")
 }

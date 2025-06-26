@@ -16,15 +16,23 @@ package pricing
 
 import (
 	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
+	"github.com/zoom/karpenter-oci/pkg/utils"
 	"math"
 	"strings"
 )
 
 func Calculate(shape *internalmodel.WrapShape, catalog *PriceCatalog) float32 {
 
+	// Determine OCPU-to-vCPU multiplier based on shape
+	shapeName := *shape.Shape.Shape
+	ratioFactor := 2
+	if utils.IsA1FlexShape(shapeName) {
+		ratioFactor = 1
+	}
+
 	if catalog == nil {
 
-		return float32(8.0*(shape.CalcCpu/2) + (shape.CalMemInGBs))
+		return float32(8.0*(shape.CalcCpu/int64(ratioFactor)) + (shape.CalMemInGBs))
 	}
 	items := catalog.FindPriceItems(*shape.Shape.Shape)
 	priceLen := len(items)
@@ -42,14 +50,14 @@ func Calculate(shape *internalmodel.WrapShape, catalog *PriceCatalog) float32 {
 		case GpuPerHour:
 			return float32(*shape.Gpus) * it.PricePerUnit()
 		case OcpuPerHour:
-			return float32(shape.CalcCpu/2) * it.PricePerUnit()
+			return float32(shape.CalcCpu/int64(ratioFactor)) * it.PricePerUnit()
 		case GigabytePerHour:
 			return float32(shape.CalMemInGBs) * it.PricePerUnit()
 		case NodePerHour:
 			if it.IsGpu() {
 				return float32(*shape.Gpus) * it.PricePerUnit()
 			} else {
-				return float32(shape.CalcCpu/2) * it.PricePerUnit()
+				return float32(shape.CalcCpu/int64(ratioFactor)) * it.PricePerUnit()
 			}
 		case NVMeTerabytePerHour:
 			return *shape.LocalDisksTotalSizeInGBs * it.PricePerUnit()
@@ -60,7 +68,7 @@ func Calculate(shape *internalmodel.WrapShape, catalog *PriceCatalog) float32 {
 		for _, item := range items {
 
 			if item.IsOcpuType() {
-				price += float32(shape.CalcCpu/2) * item.PricePerUnit()
+				price += float32(shape.CalcCpu/int64(ratioFactor)) * item.PricePerUnit()
 			} else if item.IsMemoryType() {
 				price += float32(shape.CalMemInGBs) * item.PricePerUnit()
 			} else if item.IsNVMeType() {
@@ -72,10 +80,10 @@ func Calculate(shape *internalmodel.WrapShape, catalog *PriceCatalog) float32 {
 			} else if item.Is3YearCommit() {
 				continue
 			} else if item.IsHourlyCommit() {
-				price += float32(shape.CalcCpu/2) * item.PricePerUnit()
+				price += float32(shape.CalcCpu/int64(ratioFactor)) * item.PricePerUnit()
 				break
 			} else {
-				price += float32(shape.CalcCpu/2) * item.PricePerUnit()
+				price += float32(shape.CalcCpu/int64(ratioFactor)) * item.PricePerUnit()
 			}
 		}
 
