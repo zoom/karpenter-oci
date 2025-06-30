@@ -17,6 +17,9 @@ package subnet
 import (
 	"context"
 	"fmt"
+	"net"
+	"sync"
+
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
@@ -25,7 +28,6 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/api"
 	"github.com/zoom/karpenter-oci/pkg/operator/options"
-	"sync"
 )
 
 type Provider struct {
@@ -36,6 +38,45 @@ type Provider struct {
 
 func NewProvider(client api.VirtualNetworkClient, cache *cache.Cache) *Provider {
 	return &Provider{client: client, cache: cache}
+}
+
+func (p *Provider) GetSubnetUtilization(ctx context.Context, subnet *core.Subnet) (summary []core.IpInventoryCidrUtilizationSummary, err error) {
+	resp, err := p.client.GetSubnetCidrUtilization(ctx, core.GetSubnetCidrUtilizationRequest{
+		SubnetId: subnet.Id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	summary = resp.IpInventoryCidrUtilizationSummary
+	return
+}
+
+func (p *Provider) GetSubnetAvailableIPv4Count(ctx context.Context, subnet *core.Subnet) (int, error) {
+	if subnet.CidrBlock == nil {
+		return 0, nil
+	}
+	availableCount, err := calculateTotalIps(*subnet.CidrBlock)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := p.client.GetSubnetCidrUtilization(ctx, core.GetSubnetCidrUtilizationRequest{
+		SubnetId: subnet.Id,
+	})
+	if err != nil {
+		return 0, err
+	}
+	for _, smy := range resp.IpInventoryCidrUtilizationSummary {
+		if smy.Cidr != nil && subnet.CidrBlock != nil && *smy.Cidr == *subnet.CidrBlock {
+			availableCount = availableCount - int(float32(availableCount)*(*resp.IpInventoryCidrUtilizationSummary[0].Utilization)/100)
+			break
+		}
+	}
+
+	if availableCount < 0 {
+		availableCount = 0
+	}
+
+	return availableCount, nil
 }
 
 func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]core.Subnet, error) {
@@ -119,4 +160,13 @@ func (p *Provider) GetSubnets(ctx context.Context, vnics []core.VnicAttachment, 
 	})
 
 	return subnets, nil
+}
+
+func calculateTotalIps(cidr string) (int, error) {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return 0, err
+	}
+	maskLen, maxLen := ipNet.Mask.Size()
+	return 1 << (maxLen - maskLen), nil
 }

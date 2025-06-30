@@ -17,6 +17,7 @@ package fake
 import (
 	"context"
 	"fmt"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
@@ -30,11 +31,12 @@ type VcnCli struct {
 }
 
 type VcnBehavior struct {
-	ListSubnetsOutput        AtomicPtr[core.ListSubnetsResponse]
-	ListSecurityGroupOutput  AtomicPtr[core.ListNetworkSecurityGroupsResponse]
-	GetSubnetOutput          AtomicPtr[core.GetSubnetResponse]
-	GetVnicOutput            AtomicPtr[core.GetVnicResponse]
-	GetSecurityGroupResponse AtomicPtr[core.GetNetworkSecurityGroupResponse]
+	ListSubnetsOutput              AtomicPtr[core.ListSubnetsResponse]
+	ListSecurityGroupOutput        AtomicPtr[core.ListNetworkSecurityGroupsResponse]
+	GetSubnetOutput                AtomicPtr[core.GetSubnetResponse]
+	GetVnicOutput                  AtomicPtr[core.GetVnicResponse]
+	GetSecurityGroupResponse       AtomicPtr[core.GetNetworkSecurityGroupResponse]
+	GetSubnetCidrUtilizationOutput AtomicPtr[map[string]core.GetSubnetCidrUtilizationResponse]
 }
 
 var DefaultVnics = []core.Vnic{
@@ -59,18 +61,21 @@ var DefaultSubnets = []core.Subnet{
 		Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaaa"),
 		DisplayName:    common.String("private-1"),
 		LifecycleState: core.SubnetLifecycleStateAvailable,
+		CidrBlock:      common.String("10.0.0.0/24"),
 	},
 	{
 		CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
 		Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaab"),
 		DisplayName:    common.String("private-1"),
 		LifecycleState: core.SubnetLifecycleStateAvailable,
+		CidrBlock:      common.String("10.0.0.10/24"),
 	},
 	{
 		CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
 		Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaac"),
 		DisplayName:    common.String("private-2"),
 		LifecycleState: core.SubnetLifecycleStateAvailable,
+		CidrBlock:      common.String("10.0.0.20/24"),
 	},
 }
 
@@ -187,6 +192,23 @@ func (v *VcnCli) GetNetworkSecurityGroup(ctx context.Context, request core.GetNe
 	}
 
 	return core.GetNetworkSecurityGroupResponse{NetworkSecurityGroup: sgs}, nil
+}
+
+func (v *VcnCli) GetSubnetCidrUtilization(ctx context.Context, request core.GetSubnetCidrUtilizationRequest) (response core.GetSubnetCidrUtilizationResponse, err error) {
+	if !v.GetSubnetCidrUtilizationOutput.IsNil() {
+		output := v.GetSubnetCidrUtilizationOutput.Clone()
+		return (*output)[*request.SubnetId], nil
+	}
+
+	if request.SubnetId == nil {
+		return core.GetSubnetCidrUtilizationResponse{}, fmt.Errorf("InvalidParameterValue: The filter 'null' is invalid")
+	}
+	return core.GetSubnetCidrUtilizationResponse{IpInventoryCidrUtilizationCollection: core.IpInventoryCidrUtilizationCollection{
+		Count: common.Int(1),
+		IpInventoryCidrUtilizationSummary: []core.IpInventoryCidrUtilizationSummary{
+			{Utilization: common.Float32(0), Cidr: common.String("10.0.0.0/24"), AddressType: common.String("Private_IPv4")},
+		},
+	}}, nil
 }
 
 func FilterDescribeSecurityGroups(sgs []core.NetworkSecurityGroup, displayName string) []core.NetworkSecurityGroup {
