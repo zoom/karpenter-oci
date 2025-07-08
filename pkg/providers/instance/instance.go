@@ -68,12 +68,8 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	if nodeClaim != nil && nodeClaim.Spec.Resources.Requests.Pods().Value() > int64(count) {
 		return nil, fmt.Errorf("not enough IPs are available on all subnets")
 	}
-	sgs, err := p.securityGroupProvider.List(ctx, nodeClass)
-	if err != nil {
-		return nil, err
-	}
-	sgsIds := lo.Map[core.NetworkSecurityGroup, string](sgs, func(item core.NetworkSecurityGroup, index int) string {
-		return utils.ToString(item.Id)
+	sgsIds := lo.Map[*v1alpha1.SecurityGroup, string](nodeClass.Status.SecurityGroups, func(item *v1alpha1.SecurityGroup, index int) string {
+		return item.Id
 	})
 	instanceType, zone := pickBestInstanceType(nodeClaim, instanceTypes)
 	ad, ok := lo.Find(options.FromContext(ctx).AvailableDomains, func(item string) bool {
@@ -152,9 +148,9 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		memoryInMi, _ := strconv.Atoi(memoryInMiVal[0])
 		// Determine if it's an A1 shape (1 OCPU = 1 vCPU), otherwise assume 1 OCPU = 2 vCPU
 		ocpus := float32(vcpu)
-			if !utils.IsA1FlexShape(instanceType.Name) {
-			    ocpus = ocpus / 2.0
-			}
+		if !utils.IsA1FlexShape(instanceType.Name) {
+			ocpus = ocpus / 2.0
+		}
 		req.ShapeConfig = &core.LaunchInstanceShapeConfigDetails{
 			MemoryInGBs: common.Float32(float32(memoryInMi / 1024)),
 			Ocpus:       common.Float32(float32(ocpus))}
@@ -212,6 +208,7 @@ func getTags(ctx context.Context, nodeClass *v1alpha1.OciNodeClass, nodeClaim *c
 		corev1.NodePoolLabelKey:         nodeClaim.Labels[corev1.NodePoolLabelKey],
 		v1alpha1.ManagedByAnnotationKey: options.FromContext(ctx).ClusterName,
 		v1alpha1.LabelNodeClass:         nodeClass.Name,
+		v1alpha1.LabelNodeClaim:         nodeClaim.Name,
 	}
 	return removeExcludingChars(48, staticTags, nodeClass.Spec.Tags)
 }

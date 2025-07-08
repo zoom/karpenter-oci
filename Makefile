@@ -1,7 +1,7 @@
 # change the below var to yours before build and apply
 #-------
-CLUSTER_NAME ?= karpenter-oci-test
-CLUSTER_ENDPOINT ?= https://10.0.0.10:6443
+CLUSTER_NAME ?= karpenter-test-132
+CLUSTER_ENDPOINT ?= https://10.0.0.13:6443
 COMPARTMENT_ID ?= ocid1.compartment.oc1..aaaaaaaa
 CLUSTER_DNS ?= 10.96.5.5
 REGION ?= us-ashburn-1

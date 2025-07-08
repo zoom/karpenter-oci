@@ -30,15 +30,41 @@ const (
 )
 
 type OciNodeClassSpec struct {
-	VcnId                 string                      `json:"vcnId"`
-	ImageSelector         []ImageSelectorTerm         `json:"imageSelector"`
-	SubnetSelector        []SubnetSelectorTerm        `json:"subnetSelector"`
+	VcnId string `json:"vcnId"`
+	// imageSelector is a list of or image selector terms. The terms are ORed.
+	// +kubebuilder:validation:XValidation:message="expected at least one, got none, ['id', 'name']",rule="self.all(x, has(x.id) || has(x.name))"
+	// +kubebuilder:validation:XValidation:message="'id' is mutually exclusive, cannot be set with a combination of other fields in imageSelector",rule="!self.exists(x, has(x.id) && has(x.name))"
+	// +kubebuilder:validation:MinItems:=1
+	// +kubebuilder:validation:MaxItems:=30
+	// +required
+	ImageSelector []ImageSelectorTerm `json:"imageSelector"`
+	// subnetSelector is a list of or subnet selector terms. The terms are ORed.
+	// +kubebuilder:validation:XValidation:message="subnetSelector cannot be empty",rule="self.size() != 0"
+	// +kubebuilder:validation:XValidation:message="expected at least one, got none, ['name', 'id']",rule="self.all(x, has(x.name) || has(x.id))"
+	// +kubebuilder:validation:XValidation:message="'id' is mutually exclusive, cannot be set with a combination of other fields in subnetSelector",rule="!self.all(x, has(x.id) && has(x.name))"
+	// +kubebuilder:validation:MaxItems:=30
+	// +required
+	SubnetSelector []SubnetSelectorTerm `json:"subnetSelector"`
+	// securityGroupSelector is a list of or security group selector terms. The terms are ORed.
+	// +kubebuilder:validation:XValidation:message="expected at least one, got none, ['id', 'name']",rule="self.all(x, has(x.id) || has(x.name))"
+	// +kubebuilder:validation:XValidation:message="'id' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelector",rule="!self.all(x, has(x.id) && has(x.name))"
+	// +kubebuilder:validation:XValidation:message="'name' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelector",rule="!self.all(x, has(x.name) && has(x.id))"
+	// +kubebuilder:validation:MaxItems:=30
+	// +required
 	SecurityGroupSelector []SecurityGroupSelectorTerm `json:"securityGroupSelector,omitempty"`
 	UserData              *string                     `json:"userData,omitempty"`
 	PreInstallScript      *string                     `json:"preInstallScript,omitempty"`
 	MetaData              map[string]string           `json:"metaData,omitempty"`
 	ImageFamily           string                      `json:"imageFamily"`
-	Tags                  map[string]string           `json:"tags,omitempty"`
+	// Tags to be applied on instance resources
+	// +kubebuilder:validation:XValidation:message="empty tag keys aren't supported",rule="self.all(k, k != '')"
+	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching kubernetes.io/cluster/",rule="self.all(k, !k.startsWith('kubernetes.io/cluster') )"
+	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.sh/nodepool",rule="self.all(k, k != 'karpenter.sh/nodepool')"
+	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.sh/nodeclaim",rule="self.all(k, k !='karpenter.sh/nodeclaim')"
+	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.sh/managed-by",rule="self.all(k, k !='karpenter.sh/managed-by')"
+	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.k8s.oracle/ocinodeclass",rule="self.all(k, k !='karpenter.k8s.oracle/ocinodeclass')"
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 	// Kubelet defines args to be used when configuring kubelet on provisioned nodes.
 	// They are a subset of the upstream types, recognizing not all options may be supported.
 	// Wherever possible, the types and names should reflect the upstream kubelet types.
@@ -53,9 +79,16 @@ type OciNodeClassSpec struct {
 	AgentList     []string              `json:"agentList,omitempty"`
 }
 
-// TODO add verification >50Gi <32TB
 type VolumeAttributes struct {
+	// SizeInGBs specifies the size of the block volume in GB.
+	// Must be between 50 and 32768.
+	// +kubebuilder:validation:Minimum=50
+	// +kubebuilder:validation:Maximum=32768
 	SizeInGBs int64 `json:"sizeInGBs"`
+
+	// VpusPerGB specifies the number of volume performance units per GB.
+	// Allowed values: 0 (low cost), 10 (balanced), 20 (high performance).
+	// +kubebuilder:validation:Enum=0;10;20
 	VpusPerGB int64 `json:"vpusPerGB"`
 }
 
@@ -106,7 +139,13 @@ type SecurityGroup struct {
 }
 
 type ImageSelectorTerm struct {
-	Id            string `json:"id,omitempty"`
+	// ID is the ami id in instance
+	// +kubebuilder:validation:Pattern:="ocid1.image.[0-9a-z]+"
+	// +optional
+	Id string `json:"id,omitempty"`
+	// Name is the image name in instance.
+	// This value is the name field, which is different from the name tag.
+	// +optional
 	Name          string `json:"name,omitempty"`
 	CompartmentId string `json:"compartmentId,omitempty"`
 }

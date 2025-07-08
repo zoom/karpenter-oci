@@ -116,7 +116,7 @@ var _ = Describe("NodeClass Hash Controller", func() {
 	},
 		Entry("UserData Drift", &v1alpha1.OciNodeClass{Spec: v1alpha1.OciNodeClassSpec{UserData: utils.String("userdata-test-2")}}),
 		Entry("Tags Drift", &v1alpha1.OciNodeClass{Spec: v1alpha1.OciNodeClassSpec{Tags: map[string]string{"keyTag-test-3": "valueTag-test-3"}}}),
-		Entry("BlockDeviceMappings Drift", &v1alpha1.OciNodeClass{Spec: v1alpha1.OciNodeClassSpec{BlockDevices: []*v1alpha1.VolumeAttributes{{SizeInGBs: 1, VpusPerGB: 1}}}}),
+		Entry("BlockDeviceMappings Drift", &v1alpha1.OciNodeClass{Spec: v1alpha1.OciNodeClassSpec{BlockDevices: []*v1alpha1.VolumeAttributes{{SizeInGBs: 200, VpusPerGB: 20}}}}),
 	)
 	It("should not update ocinodeclass-hash on all NodeClaims when the ocinodeclass-hash-version matches the controller hash version", func() {
 		nodeClass.Annotations = map[string]string{

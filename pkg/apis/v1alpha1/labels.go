@@ -40,6 +40,7 @@ var (
 	}
 
 	LabelNodeClass = Group + "/ocinodeclass"
+	LabelNodeClaim = apis.Group + "/nodeclaim"
 
 	LabelInstanceShapeName        = Group + "/instance-shape-name"
 	LabelInstanceCPU              = Group + "/instance-cpu"

@@ -154,7 +154,6 @@ func (c *CloudProvider) Get(ctx context.Context, providerID string) (*corev1.Nod
 	return c.instanceToNodeClaim(ctx, instance, instanceType), nil
 }
 
-// todo impl me
 func (c *CloudProvider) LivenessProbe(req *http.Request) error {
 	return nil
 }

@@ -38,11 +38,12 @@ Allow any-user to use tag-namespaces in tenancy where all {request.principal.typ
 ```
 4. create tag namespace, the namespace name could like `oke-karpenter-ns`, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.
 
-| key                              | description                                  |
-|:---------------------------------|:---------------------------------------------|
-| karpenter_k8s_oracle/ocinodeclass| the name of nodeclass used to crate instance |
-| karpenter_sh/managed-by          | the OKE cluster name                         |
-| karpenter_sh/nodepool            | the name of nodepool used to create instance |
+| key                               | description                                   |
+|:----------------------------------|:----------------------------------------------|
+| karpenter_k8s_oracle/ocinodeclass | the name of nodeclass used to crate instance  |
+| karpenter_sh/managed-by           | the OKE cluster name                          |
+| karpenter_sh/nodepool             | the name of nodepool used to create instance  |
+| karpenter_sh/nodeclaim            | the name of nodeclaim used to create instance |
 
 ### install
 replace the clusterName, clusterEndpoint, clusterDns, compartmentId, ociResourcePrincipalRegion with yours.

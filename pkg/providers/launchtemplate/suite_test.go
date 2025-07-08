@@ -150,7 +150,7 @@ var _ = Describe("LaunchTemplate Provider", func() {
 			ExpectScheduled(ctx, env.Client, pod)
 			Expect(ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Len()).To(Equal(1))
 			createFleetInput := ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Pop()
-			Expect(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace]).To(HaveLen(5))
+			Expect(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace]).To(HaveLen(6))
 
 			// tags should be included in instance
 			ExpectTags(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace], nodeClass.Spec.Tags)
