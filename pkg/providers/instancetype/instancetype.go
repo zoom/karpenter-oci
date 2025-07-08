@@ -67,7 +67,6 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	}
 	instanceTypes := make([]*cloudprovider.InstanceType, 0)
 	for _, wrapped := range wrapShapes {
-		// todo offers
 		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, p.region, wrapped.AvailableDomains, p.CreateOfferings(wrapped, sets.New(wrapped.AvailableDomains...))))
 	}
 	return instanceTypes, nil

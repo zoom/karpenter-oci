@@ -90,27 +90,40 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	defer p.Unlock()
 
 	if subnets, ok := p.cache.Get(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash)); ok {
-		return subnets.([]core.Subnet), nil
+		// shallow-copy of the slice
+		return append([]core.Subnet{}, subnets.([]core.Subnet)...), nil
 	}
-	subnets := make([]core.Subnet, 0)
+	subnets := make(map[string]core.Subnet, 0)
 	for _, selector := range nodeClass.Spec.SubnetSelector {
-		// Create a request and dependent object(s).
-		req := core.ListSubnetsRequest{CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
-			VcnId:          common.String(nodeClass.Spec.VcnId),
-			DisplayName:    common.String(selector.Name),
-			LifecycleState: core.SubnetLifecycleStateAvailable,
-		}
+		if selector.Id != "" {
+			req := core.GetSubnetRequest{
+				SubnetId: common.String(selector.Id),
+			}
+			resp, err := p.client.GetSubnet(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			subnets[lo.FromPtr(resp.Id)] = resp.Subnet
+		} else if selector.Name != "" {
+			// Create a request and dependent object(s).
+			req := core.ListSubnetsRequest{CompartmentId: common.String(options.FromContext(ctx).CompartmentId),
+				VcnId:          common.String(nodeClass.Spec.VcnId),
+				DisplayName:    common.String(selector.Name),
+				LifecycleState: core.SubnetLifecycleStateAvailable,
+			}
 
-		// Send the request using the service client
-		resp, err := p.client.ListSubnets(ctx, req)
-		if err != nil {
-			return nil, err
+			// Send the request using the service client
+			resp, err := p.client.ListSubnets(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			for _, subnet := range resp.Items {
+				subnets[lo.FromPtr(subnet.Id)] = subnet
+			}
 		}
-		subnets = append(subnets, resp.Items...)
 	}
-	// todo unique and sort
-	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), subnets)
-	return subnets, nil
+	p.cache.SetDefault(fmt.Sprintf("%s:%d", nodeClass.Spec.VcnId, hash), lo.Values(subnets))
+	return lo.Values(subnets), nil
 }
 
 func (p *Provider) GetSubnets(ctx context.Context, vnics []core.VnicAttachment, onlyPrimary bool) ([]core.Subnet, error) {
