@@ -17,6 +17,12 @@ package imagefamily
 import (
 	"context"
 	"fmt"
+	"github.com/samber/lo"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
+	corev1 "k8s.io/api/core/v1"
+	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
+	"sigs.k8s.io/karpenter/pkg/scheduling"
+	"strings"
 	"sync"
 
 	"github.com/mitchellh/hashstructure/v2"
@@ -40,7 +46,7 @@ func NewProvider(client api.ComputeClient, cache *cache.Cache) *Provider {
 	}
 }
 
-func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) ([]core.Image, error) {
+func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) ([]internalmodel.WrapImage, error) {
 	hash, err := hashstructure.Hash(nodeclass.Spec.ImageSelector, hashstructure.FormatV2, &hashstructure.HashOptions{SlicesAsSets: true})
 	if err != nil {
 		return nil, err
@@ -50,9 +56,10 @@ func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) (
 	defer p.Unlock()
 
 	if images, ok := p.cache.Get(fmt.Sprintf("%d", hash)); ok {
-		return images.([]core.Image), nil
+		// shallow-copy of the slice
+		return append([]internalmodel.WrapImage{}, images.([]internalmodel.WrapImage)...), nil
 	}
-	images := make([]core.Image, 0)
+	images := make(map[string]internalmodel.WrapImage, 0)
 	for _, selector := range nodeclass.Spec.ImageSelector {
 		if selector.Id == "" {
 			req := core.ListImagesRequest{
@@ -65,7 +72,9 @@ func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) (
 			if err != nil {
 				return nil, err
 			}
-			images = append(images, resp.Items...)
+			for _, img := range resp.Items {
+				images[lo.FromPtr(img.Id)] = internalmodel.WrapImage{Image: img, Requirements: requirementsForImage(nodeclass.Spec.ImageFamily, img)}
+			}
 		} else {
 			req := core.GetImageRequest{
 				ImageId: common.String(selector.Id),
@@ -74,10 +83,28 @@ func (p *Provider) List(ctx context.Context, nodeclass *v1alpha1.OciNodeClass) (
 			if err != nil {
 				return nil, err
 			}
-			images = append(images, resp.Image)
+			images[lo.FromPtr(resp.Id)] = internalmodel.WrapImage{Image: resp.Image, Requirements: requirementsForImage(nodeclass.Spec.ImageFamily, resp.Image)}
 		}
 	}
-	// todo sort and unique
-	p.cache.SetDefault(fmt.Sprintf("%d", hash), images)
-	return images, nil
+	p.cache.SetDefault(fmt.Sprintf("%d", hash), lo.Values(images))
+	return lo.Values(images), nil
+}
+
+// parse the image arch info from name
+// gpu Oracle-Linux-8.10-Gen2-GPU-2025.05.19-0-OKE-1.31.1-764
+// arm64 Oracle-Linux-8.10-aarch64-2025.05.19-0-OKE-1.31.1-764
+// x86 Oracle-Linux-8.10-2025.05.19-0-OKE-1.31.1-764
+func requirementsForImage(imageFamily string, image core.Image) scheduling.Requirements {
+	if imageFamily != v1alpha1.OracleOKELinuxImageFamily {
+		return scheduling.NewRequirements()
+	}
+	arch := karpv1.ArchitectureAmd64
+	if strings.Contains(strings.ToLower(lo.FromPtr(image.DisplayName)), "aarch64") {
+		arch = karpv1.ArchitectureAmd64
+	}
+	requires := scheduling.NewRequirements(scheduling.NewRequirement(corev1.LabelArchStable, corev1.NodeSelectorOpIn, arch))
+	if strings.Contains(strings.ToLower(lo.FromPtr(image.DisplayName)), "gpu") {
+		requires.Add(scheduling.NewRequirement(v1alpha1.LabelInstanceGPU, corev1.NodeSelectorOpExists))
+	}
+	return requires
 }

@@ -237,6 +237,12 @@ spec:
                         volumes on platform images.
                         * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
                         storage volumes on platform images.
+                      enum:
+                        - ISCSI
+                        - SCSI
+                        - IDE
+                        - VFIO
+                        - PARAVIRTUALIZED
                       type: string
                     firmware:
                       description: |-
@@ -245,6 +251,9 @@ spec:
                         systems that boot using MBR style bootloaders.
                         * `UEFI_64` - Boot VM using UEFI style firmware compatible with 64 bit operating systems. This is the
                         default for platform images.
+                      enum:
+                        - BIOS
+                        - UEFI_64
                       type: string
                     isConsistentVolumeNamingEnabled:
                       description: Whether to enable consistent volume naming feature. Defaults to false.
@@ -256,6 +265,10 @@ spec:
                         * `VFIO` - Direct attached Virtual Function network controller. This is the networking type
                         when you launch an instance using hardware-assisted (SR-IOV) networking.
                         * `PARAVIRTUALIZED` - VM instances launch with paravirtualized devices using VirtIO drivers.
+                      enum:
+                        - E1000
+                        - VFIO
+                        - PARAVIRTUALIZED
                       type: string
                     remoteDataVolumeType:
                       description: |-
@@ -267,6 +280,12 @@ spec:
                         volumes on platform images.
                         * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
                         storage volumes on platform images.
+                      enum:
+                        - ISCSI
+                        - SCSI
+                        - IDE
+                        - VFIO
+                        - PARAVIRTUALIZED
                       type: string
                   type: object
                 metaData:
@@ -411,6 +430,38 @@ spec:
                         type: string
                       name:
                         type: string
+                      requirements:
+                        items:
+                          description: |-
+                            A node selector requirement is a selector that contains values, a key, and an operator
+                            that relates the key and values.
+                          properties:
+                            key:
+                              description: The label key that the selector applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                Represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                              type: string
+                            values:
+                              description: |-
+                                An array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. If the operator is Gt or Lt, the values
+                                array must have a single element, which will be interpreted as an integer.
+                                This array is replaced during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                            - key
+                            - operator
+                          type: object
+                        type: array
+                    required:
+                      - requirements
                     type: object
                   type: array
                 securityGroups:

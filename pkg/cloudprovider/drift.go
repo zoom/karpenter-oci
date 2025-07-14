@@ -89,7 +89,7 @@ func (c *CloudProvider) isImageDrifted(ctx context.Context, nodeClaim *karpv1.No
 	if len(nodeClass.Status.Images) == 0 {
 		return "", fmt.Errorf("no image exist given constraints")
 	}
-	mappedImgs := imagefamily.FindCompatibleInstanceType([]*cloudprovider.InstanceType{nodeInstanceType}, nodeClass.Status.Images)
+	mappedImgs := imagefamily.MapToInstanceTypes(nodeInstanceType, nodeClass.Status.Images)
 	if !lo.Contains(lo.Keys(mappedImgs), *instance.ImageId) {
 		return ImageDrift, nil
 	}

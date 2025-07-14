@@ -18,9 +18,9 @@ import (
 	"context"
 	"github.com/awslabs/operatorpkg/object"
 	"github.com/awslabs/operatorpkg/status"
+	"github.com/oracle/oci-go-sdk/v65/common"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis"
@@ -234,6 +234,7 @@ var _ = Describe("CloudProvider", func() {
 					Id:            "ocid1.image.oc1.iad.shape-2",
 					Name:          "shape-2",
 					CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+					Requirements:  make([]v1.NodeSelectorRequirement, 0),
 				},
 			}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass, nodeClaim)
@@ -264,6 +265,7 @@ var _ = Describe("CloudProvider", func() {
 					Id:            "ocid1.image.oc1.iad.aaaaaaaa",
 					Name:          "shape-1",
 					CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+					Requirements:  make([]v1.NodeSelectorRequirement, 0),
 				},
 			}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass, nodeClaim)
@@ -403,6 +405,7 @@ func CreateOciTestResource(nodePool *karpv1.NodePool, nodeClass *v1alpha1.OciNod
 			Id:            "ocid1.image.oc1.iad.aaaaaaaa",
 			Name:          "shape-1",
 			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+			Requirements:  make([]v1.NodeSelectorRequirement, 0),
 		},
 	}
 	nodeClass.Status.Subnets = []*v1alpha1.Subnet{

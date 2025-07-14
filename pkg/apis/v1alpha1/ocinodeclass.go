@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/awslabs/operatorpkg/status"
 	"github.com/mitchellh/hashstructure/v2"
@@ -128,9 +129,10 @@ type CidrUtilizationSummary struct {
 }
 
 type Image struct {
-	Id            string `json:"id,omitempty"`
-	Name          string `json:"name,omitempty"`
-	CompartmentId string `json:"compartmentId,omitempty"`
+	Id            string                           `json:"id,omitempty"`
+	Name          string                           `json:"name,omitempty"`
+	CompartmentId string                           `json:"compartmentId,omitempty"`
+	Requirements  []corev1.NodeSelectorRequirement `json:"requirements"`
 }
 
 type SecurityGroup struct {
@@ -175,21 +177,24 @@ type LaunchOptions struct {
 	// volumes on platform images.
 	// * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
 	// storage volumes on platform images.
-	BootVolumeType string `mandatory:"false" json:"bootVolumeType,omitempty"`
+	// +kubebuilder:validation:Enum=ISCSI;SCSI;IDE;VFIO;PARAVIRTUALIZED
+	BootVolumeType *string `mandatory:"false" json:"bootVolumeType,omitempty"`
 
 	// Firmware used to boot VM. Select the option that matches your operating system.
 	// * `BIOS` - Boot VM using BIOS style firmware. This is compatible with both 32 bit and 64 bit operating
 	// systems that boot using MBR style bootloaders.
 	// * `UEFI_64` - Boot VM using UEFI style firmware compatible with 64 bit operating systems. This is the
 	// default for platform images.
-	Firmware string `mandatory:"false" json:"firmware,omitempty"`
+	// +kubebuilder:validation:Enum=BIOS;UEFI_64
+	Firmware *string `mandatory:"false" json:"firmware,omitempty"`
 
 	// Emulation type for the physical network interface card (NIC).
 	// * `E1000` - Emulated Gigabit ethernet controller. Compatible with Linux e1000 network driver.
 	// * `VFIO` - Direct attached Virtual Function network controller. This is the networking type
 	// when you launch an instance using hardware-assisted (SR-IOV) networking.
 	// * `PARAVIRTUALIZED` - VM instances launch with paravirtualized devices using VirtIO drivers.
-	NetworkType string `mandatory:"false" json:"networkType,omitempty"`
+	// +kubebuilder:validation:Enum=E1000;VFIO;PARAVIRTUALIZED
+	NetworkType *string `mandatory:"false" json:"networkType,omitempty"`
 
 	// Emulation type for volume.
 	// * `ISCSI` - ISCSI attached block storage device.
@@ -199,10 +204,11 @@ type LaunchOptions struct {
 	// volumes on platform images.
 	// * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
 	// storage volumes on platform images.
-	RemoteDataVolumeType string `mandatory:"false" json:"remoteDataVolumeType,omitempty"`
+	// +kubebuilder:validation:Enum=ISCSI;SCSI;IDE;VFIO;PARAVIRTUALIZED
+	RemoteDataVolumeType *string `mandatory:"false" json:"remoteDataVolumeType,omitempty"`
 
 	// Whether to enable consistent volume naming feature. Defaults to false.
-	IsConsistentVolumeNamingEnabled bool `mandatory:"false" json:"isConsistentVolumeNamingEnabled,omitempty"`
+	IsConsistentVolumeNamingEnabled *bool `mandatory:"false" json:"isConsistentVolumeNamingEnabled,omitempty"`
 }
 
 type KubeletConfiguration struct {

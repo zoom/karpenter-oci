@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 
@@ -35,8 +36,7 @@ func OciNodeClass(overrides ...v1alpha1.OciNodeClass) *v1alpha1.OciNodeClass {
 			Name: "test",
 		},
 		Spec: v1alpha1.OciNodeClassSpec{
-			ImageSelector: []v1alpha1.ImageSelectorTerm{{Name: "ubuntu", CompartmentId: "ocid1.compartment.oc1..aaaaaaaa"}},
-			VcnId:         "vcn_1",
+			VcnId: "vcn_1",
 			SecurityGroupSelector: []v1alpha1.SecurityGroupSelectorTerm{
 				{Name: "securityGroup-test1"},
 				{Name: "securityGroup-test2"}},
@@ -58,7 +58,32 @@ func OciNodeClass(overrides ...v1alpha1.OciNodeClass) *v1alpha1.OciNodeClass {
 			panic(fmt.Sprintf("Failed to merge settings: %s", err))
 		}
 	}
-
+	if len(options.Spec.ImageSelector) == 0 {
+		options.Spec.ImageSelector = []v1alpha1.ImageSelectorTerm{{Name: "ubuntu", CompartmentId: "ocid1.compartment.oc1..aaaaaaaa"}}
+		options.Status.Images = []*v1alpha1.Image{
+			{
+				Id: "ocid1.image.amd64",
+				Requirements: []corev1.NodeSelectorRequirement{
+					{Key: corev1.LabelArchStable, Operator: corev1.NodeSelectorOpIn, Values: []string{v1.ArchitectureAmd64}},
+					{Key: v1alpha1.LabelInstanceGPU, Operator: corev1.NodeSelectorOpDoesNotExist},
+				},
+			},
+			{
+				Id: "ocid1.image.gpu",
+				Requirements: []corev1.NodeSelectorRequirement{
+					{Key: corev1.LabelArchStable, Operator: corev1.NodeSelectorOpIn, Values: []string{v1.ArchitectureAmd64}},
+					{Key: v1alpha1.LabelInstanceGPU, Operator: corev1.NodeSelectorOpExists},
+				},
+			},
+			{
+				Id: "ocid1.image.arm64",
+				Requirements: []corev1.NodeSelectorRequirement{
+					{Key: corev1.LabelArchStable, Operator: corev1.NodeSelectorOpIn, Values: []string{v1.ArchitectureArm64}},
+					{Key: v1alpha1.LabelInstanceGPU, Operator: corev1.NodeSelectorOpDoesNotExist},
+				},
+			},
+		}
+	}
 	return &v1alpha1.OciNodeClass{
 		ObjectMeta: test.ObjectMeta(options.ObjectMeta),
 		Spec:       options.Spec,
