@@ -22,16 +22,18 @@ import (
 )
 
 type OptionsFields struct {
-	ClusterName             *string
-	ClusterEndpoint         *string
-	ClusterCABundle         *string
-	BootStrapToken          *string
-	CompartmentId           *string
-	VMMemoryOverheadPercent *float64
-	FlexCpuMemRatios        *string
-	FlexCpuConstrainList    *string
-	AvailableDomains        []string
-	TagNamespace            *string
+	ClusterName              *string
+	ClusterEndpoint          *string
+	ClusterCABundle          *string
+	BootStrapToken           *string
+	CompartmentId            *string
+	VMMemoryOverheadPercent  *float64
+	FlexCpuMemRatios         *string
+	FlexCpuConstrainList     *string
+	AvailableDomains         []string
+	TagNamespace             *string
+	PreemptibleShapes        *string
+	PreemptibleExcludeShapes *string
 }
 
 func Options(overrides ...OptionsFields) *options.Options {
@@ -42,15 +44,17 @@ func Options(overrides ...OptionsFields) *options.Options {
 		}
 	}
 	return &options.Options{
-		ClusterCABundle:         lo.FromPtrOr(opts.ClusterCABundle, ""),
-		ClusterName:             lo.FromPtrOr(opts.ClusterName, "test-cluster"),
-		ClusterEndpoint:         lo.FromPtrOr(opts.ClusterEndpoint, "https://test-cluster"),
-		BootStrapToken:          lo.FromPtrOr(opts.BootStrapToken, "fake_token"),
-		CompartmentId:           lo.FromPtrOr(opts.CompartmentId, "fake_compartment_id"),
-		VMMemoryOverheadPercent: lo.FromPtrOr(opts.VMMemoryOverheadPercent, 0.075),
-		FlexCpuMemRatios:        lo.FromPtrOr(opts.FlexCpuMemRatios, "4"),
-		FlexCpuConstrainList:    lo.FromPtrOr(opts.FlexCpuConstrainList, "2,4,8,16,32,48,64,96,128"),
-		TagNamespace:            lo.FromPtrOr(opts.TagNamespace, "tag_namespace"),
-		AvailableDomains:        opts.AvailableDomains,
+		ClusterCABundle:          lo.FromPtrOr(opts.ClusterCABundle, ""),
+		ClusterName:              lo.FromPtrOr(opts.ClusterName, "test-cluster"),
+		ClusterEndpoint:          lo.FromPtrOr(opts.ClusterEndpoint, "https://test-cluster"),
+		BootStrapToken:           lo.FromPtrOr(opts.BootStrapToken, "fake_token"),
+		CompartmentId:            lo.FromPtrOr(opts.CompartmentId, "fake_compartment_id"),
+		VMMemoryOverheadPercent:  lo.FromPtrOr(opts.VMMemoryOverheadPercent, 0.075),
+		FlexCpuMemRatios:         lo.FromPtrOr(opts.FlexCpuMemRatios, "4"),
+		FlexCpuConstrainList:     lo.FromPtrOr(opts.FlexCpuConstrainList, "2,4,8,16,32,48,64,96,128"),
+		TagNamespace:             lo.FromPtrOr(opts.TagNamespace, "tag_namespace"),
+		AvailableDomains:         opts.AvailableDomains,
+		PreemptibleShapes:        lo.FromPtrOr(opts.PreemptibleShapes, "VM.Standard3.Flex,VM.Standard.E2"),
+		PreemptibleExcludeShapes: lo.FromPtrOr(opts.PreemptibleExcludeShapes, "VM.Standard.E2.1.Micro"),
 	}
 }

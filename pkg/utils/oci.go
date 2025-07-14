@@ -15,8 +15,6 @@ limitations under the License.
 package utils
 
 import (
-	"errors"
-	"fmt"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
@@ -24,31 +22,21 @@ import (
 )
 
 func ConvertLaunchOptions(m *v1alpha1.LaunchOptions) (*core.LaunchOptions, error) {
-	errMessage := []string{}
 	ociLaunchOptions := &core.LaunchOptions{}
-	if val, ok := core.GetMappingLaunchOptionsBootVolumeTypeEnum(m.BootVolumeType); !ok && m.BootVolumeType != "" {
-		errMessage = append(errMessage, fmt.Sprintf("unsupported enum value for BootVolumeType: %s. Supported values are: %s.", m.BootVolumeType, strings.Join(core.GetLaunchOptionsBootVolumeTypeEnumStringValues(), ",")))
-	} else {
-		ociLaunchOptions.BootVolumeType = val
+	if m.BootVolumeType != nil {
+		ociLaunchOptions.BootVolumeType, _ = core.GetMappingLaunchOptionsBootVolumeTypeEnum(lo.FromPtr(m.BootVolumeType))
 	}
-	if val, ok := core.GetMappingLaunchOptionsFirmwareEnum(m.Firmware); !ok && m.Firmware != "" {
-		errMessage = append(errMessage, fmt.Sprintf("unsupported enum value for Firmware: %s. Supported values are: %s.", m.Firmware, strings.Join(core.GetLaunchOptionsFirmwareEnumStringValues(), ",")))
-	} else {
-		ociLaunchOptions.Firmware = val
+	if m.Firmware != nil {
+		ociLaunchOptions.Firmware, _ = core.GetMappingLaunchOptionsFirmwareEnum(lo.FromPtr(m.Firmware))
 	}
-	if val, ok := core.GetMappingLaunchOptionsNetworkTypeEnum(m.NetworkType); !ok && m.NetworkType != "" {
-		errMessage = append(errMessage, fmt.Sprintf("unsupported enum value for NetworkType: %s. Supported values are: %s.", m.NetworkType, strings.Join(core.GetLaunchOptionsNetworkTypeEnumStringValues(), ",")))
-	} else {
-		ociLaunchOptions.NetworkType = val
+	if m.NetworkType != nil {
+		ociLaunchOptions.NetworkType, _ = core.GetMappingLaunchOptionsNetworkTypeEnum(lo.FromPtr(m.NetworkType))
 	}
-	if val, ok := core.GetMappingLaunchOptionsRemoteDataVolumeTypeEnum(m.RemoteDataVolumeType); !ok && m.RemoteDataVolumeType != "" {
-		errMessage = append(errMessage, fmt.Sprintf("unsupported enum value for RemoteDataVolumeType: %s. Supported values are: %s.", m.RemoteDataVolumeType, strings.Join(core.GetLaunchOptionsRemoteDataVolumeTypeEnumStringValues(), ",")))
-	} else {
-		ociLaunchOptions.RemoteDataVolumeType = val
+	if m.RemoteDataVolumeType != nil {
+		ociLaunchOptions.RemoteDataVolumeType, _ = core.GetMappingLaunchOptionsRemoteDataVolumeTypeEnum(lo.FromPtr(m.RemoteDataVolumeType))
 	}
-	ociLaunchOptions.IsConsistentVolumeNamingEnabled = lo.ToPtr(m.IsConsistentVolumeNamingEnabled)
-	if len(errMessage) > 0 {
-		return ociLaunchOptions, errors.New(strings.Join(errMessage, "\n"))
+	if m.IsConsistentVolumeNamingEnabled != nil {
+		ociLaunchOptions.IsConsistentVolumeNamingEnabled = m.IsConsistentVolumeNamingEnabled
 	}
 	return ociLaunchOptions, nil
 }

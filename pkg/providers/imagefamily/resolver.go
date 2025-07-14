@@ -23,6 +23,7 @@ import (
 	core "k8s.io/api/core/v1"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
+	"sigs.k8s.io/karpenter/pkg/scheduling"
 )
 
 const (
@@ -70,9 +71,13 @@ type ImageFamily interface {
 }
 
 func (r Resolver) Resolve(ctx context.Context, nodeClass *v1alpha1.OciNodeClass, nodeClaim *v1.NodeClaim, instanceType *cloudprovider.InstanceType, options *Options) ([]*LaunchTemplate, error) {
-	images, err := r.amiProvider.List(ctx, nodeClass)
-	if err != nil {
-		return nil, err
+	images := nodeClass.Status.Images
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no amis exist given constraints")
+	}
+	mappedImages := MapToInstanceTypes(instanceType, images)
+	if len(mappedImages) == 0 {
+		return nil, fmt.Errorf("no instance types satisfy requirements of images %v", lo.Uniq(lo.Map(images, func(a *v1alpha1.Image, _ int) string { return a.Id })))
 	}
 	if len(images) == 0 {
 		return nil, fmt.Errorf("no images exist given constraints")
@@ -80,13 +85,28 @@ func (r Resolver) Resolve(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	imageFamily := GetImageFamily(nodeClass.Spec.ImageFamily, options)
 	res := make([]*LaunchTemplate, 0)
 	for _, image := range images {
-		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, *image.Id, options)
+		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, image.Id, options)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, temp)
 	}
 	return res, nil
+}
+
+// MapToInstanceTypes returns a map of AMIIDs that are the most recent on creationDate to compatible instancetypes
+func MapToInstanceTypes(instanceType *cloudprovider.InstanceType, images []*v1alpha1.Image) map[string][]*cloudprovider.InstanceType {
+	imageId := map[string][]*cloudprovider.InstanceType{}
+	for _, image := range images {
+		if err := instanceType.Requirements.Compatible(
+			scheduling.NewNodeSelectorRequirements(image.Requirements...),
+			scheduling.AllowUndefinedWellKnownLabels,
+		); err == nil {
+			imageId[image.Id] = append(imageId[image.Id], instanceType)
+			break
+		}
+	}
+	return imageId
 }
 
 func GetImageFamily(imageFamily string, options *Options) ImageFamily {

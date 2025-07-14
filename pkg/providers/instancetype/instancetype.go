@@ -67,13 +67,13 @@ func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) (
 	}
 	instanceTypes := make([]*cloudprovider.InstanceType, 0)
 	for _, wrapped := range wrapShapes {
-		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, p.region, wrapped.AvailableDomains, p.CreateOfferings(wrapped, sets.New(wrapped.AvailableDomains...))))
+		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, p.region, wrapped.AvailableDomains, p.CreateOfferings(ctx, wrapped, sets.New(wrapped.AvailableDomains...))))
 	}
 	return instanceTypes, nil
 
 }
 
-func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
+func (p *Provider) CreateOfferings(ctx context.Context, shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
 	var offerings []*cloudprovider.Offering
 
 	for zone := range zones {
@@ -84,7 +84,7 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 			price := float64(p.priceProvider.Price(shape))
 			if capacityType == v1alpha1.CapacityTypePreemptible {
 				// Filters shapes that preemptible is supported
-				if strings.HasPrefix(*shape.Shape.Shape, "VM") {
+				if supportPreemptible(ctx, *shape.Shape.Shape) {
 					// Preemptible is 50% OFF of on-demand price
 					price = price * 0.5
 				} else {
@@ -116,6 +116,13 @@ func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Se
 		}
 	}
 	return offerings
+}
+
+func supportPreemptible(ctx context.Context, shapeName string) bool {
+	preemptibleList := strings.Split(options.FromContext(ctx).PreemptibleShapes, ",")
+	excludeList := strings.Split(options.FromContext(ctx).PreemptibleExcludeShapes, ",")
+	return lo.ContainsBy(preemptibleList, func(s string) bool { return strings.HasPrefix(shapeName, s) }) &&
+		!lo.ContainsBy(excludeList, func(s string) bool { return strings.HasPrefix(shapeName, s) })
 }
 
 func (p *Provider) ListInstanceType(ctx context.Context) (map[string]*internalmodel.WrapShape, error) {
