@@ -95,7 +95,10 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	}
 	metadata := make(map[string]string, 0)
 	if nodeClass.Spec.MetaData != nil {
-		metadata = nodeClass.Spec.MetaData
+		// Create a proper copy of the map instead of just assigning the reference
+		for k, v := range nodeClass.Spec.MetaData {
+			metadata[k] = v
+		}
 	}
 	// insert max pod and subnet info
 	if metadata["oke-native-pod-networking"] == "true" {
