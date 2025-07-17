@@ -67,10 +67,30 @@ func NewEnvironment(t *testing.T) *Environment {
 	//cfg := lo.Must(operator.NewOCIProvisioner())
 	user := lo.Must(user.Current())
 	cfg := oci_common.CustomProfileSessionTokenConfigProvider(fmt.Sprintf("%s/.oci/config", user.HomeDir), "SESSION")
-	_ = os.Setenv("CLUSTER_NAME", clusterName)
-	_ = os.Setenv("CLUSTER_ENDPOINT", clusterEndPoint)
-	_ = os.Setenv("COMPARTMENT_ID", compId)
-	_ = os.Setenv("CLUSTER_DNS", clusterDns)
+	if _, ok := os.LookupEnv("CLUSTER_NAME"); !ok {
+		_ = os.Setenv("CLUSTER_NAME", clusterName)
+	}
+	if _, ok := os.LookupEnv("CLUSTER_ENDPOINT"); !ok {
+		_ = os.Setenv("CLUSTER_ENDPOINT", clusterEndPoint)
+	}
+	if _, ok := os.LookupEnv("COMPARTMENT_ID"); !ok {
+		_ = os.Setenv("COMPARTMENT_ID", compId)
+	}
+	if _, ok := os.LookupEnv("CLUSTER_DNS"); !ok {
+		_ = os.Setenv("CLUSTER_DNS", clusterDns)
+	}
+
+	if vcn, ok := os.LookupEnv("VCN"); ok {
+		vcnId = vcn
+	}
+
+	if sg, ok := os.LookupEnv("SG_NAME"); ok {
+		sgName = sg
+	}
+
+	if subnet, ok := os.LookupEnv("SUBNET"); ok {
+		subnetName = subnet
+	}
 	_ = os.Setenv("TAG_NAMESPACE", "oke-karpenter-ns")
 	ociEnv := &Environment{
 		Region:          lo.Must(cfg.Region()),

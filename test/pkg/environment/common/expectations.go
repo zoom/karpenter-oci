@@ -692,6 +692,31 @@ func (env *Environment) ConsistentlyExpectNoDisruptions(nodeCount int, duration 
 	}, duration).Should(Succeed())
 }
 
+// ConsistentlyExpectDisruptionsWithNodeCount will continually ensure that there are exactly disruptingNodes with totalNodes (including replacements and existing nodes)
+func (env *Environment) ConsistentlyExpectDisruptionsWithNodeCount(disruptingNodes, totalNodes int, duration time.Duration) (taintedNodes []*corev1.Node) {
+	GinkgoHelper()
+	nodes := []corev1.Node{}
+	Consistently(func(g Gomega) {
+		// Ensure we don't change our NodeClaims
+		nodeClaimList := &karpv1.NodeClaimList{}
+		g.Expect(env.Client.List(env, nodeClaimList, client.HasLabels{test.DiscoveryLabel})).To(Succeed())
+		g.Expect(nodeClaimList.Items).To(HaveLen(totalNodes))
+
+		nodeList := &corev1.NodeList{}
+		g.Expect(env.Client.List(env, nodeList, client.HasLabels{test.DiscoveryLabel})).To(Succeed())
+		g.Expect(nodeList.Items).To(HaveLen(totalNodes))
+
+		nodes = lo.Filter(nodeList.Items, func(n corev1.Node, _ int) bool {
+			_, ok := lo.Find(n.Spec.Taints, func(t corev1.Taint) bool {
+				return t.MatchTaint(&karpv1.DisruptedNoScheduleTaint)
+			})
+			return ok
+		})
+		g.Expect(nodes).To(HaveLen(disruptingNodes))
+	}, duration).Should(Succeed())
+	return lo.ToSlicePtr(nodes)
+}
+
 // ConsistentlyExpectDisruptionsUntilNoneLeft consistently ensures a max on number of concurrently disrupting and non-terminating nodes.
 // This actually uses an Eventually() under the hood so that when we reach 0 tainted nodes we exit early.
 // We use the StopTrying() so that we can exit the Eventually() if we've breached an assertion on total concurrency of disruptions.
@@ -878,6 +903,18 @@ func (env *Environment) EventuallyExpectNodeClaimsReady(nodeClaims ...*karpv1.No
 			g.Expect(temp.StatusConditions().Root().IsTrue()).To(BeTrue())
 		}
 	}).Should(Succeed())
+}
+
+func (env *Environment) EventuallyExpectNodeClaimCount(comparator string, count int) []*karpv1.NodeClaim {
+	GinkgoHelper()
+	By(fmt.Sprintf("waiting for nodes to be %s to %d", comparator, count))
+	nodeClaimList := &karpv1.NodeClaimList{}
+	Eventually(func(g Gomega) {
+		g.Expect(env.Client.List(env, nodeClaimList, client.HasLabels{test.DiscoveryLabel})).To(Succeed())
+		g.Expect(len(nodeClaimList.Items)).To(BeNumerically(comparator, count),
+			fmt.Sprintf("expected %d nodeclaims, had %d (%v)", count, len(nodeClaimList.Items), NodeClaimNames(lo.ToSlicePtr(nodeClaimList.Items))))
+	}).Should(Succeed())
+	return lo.ToSlicePtr(nodeClaimList.Items)
 }
 
 func (env *Environment) EventuallyExpectDrifted(nodeClaims ...*karpv1.NodeClaim) {
