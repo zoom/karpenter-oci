@@ -100,7 +100,7 @@ func requirementsForImage(imageFamily string, image core.Image) scheduling.Requi
 	}
 	arch := karpv1.ArchitectureAmd64
 	if strings.Contains(strings.ToLower(lo.FromPtr(image.DisplayName)), "aarch64") {
-		arch = karpv1.ArchitectureAmd64
+		arch = karpv1.ArchitectureArm64
 	}
 	requires := scheduling.NewRequirements(scheduling.NewRequirement(corev1.LabelArchStable, corev1.NodeSelectorOpIn, arch))
 	if strings.Contains(strings.ToLower(lo.FromPtr(image.DisplayName)), "gpu") {
