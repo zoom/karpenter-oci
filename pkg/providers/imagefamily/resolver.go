@@ -79,13 +79,10 @@ func (r Resolver) Resolve(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	if len(mappedImages) == 0 {
 		return nil, fmt.Errorf("no instance types satisfy requirements of images %v", lo.Uniq(lo.Map(images, func(a *v1alpha1.Image, _ int) string { return a.Id })))
 	}
-	if len(images) == 0 {
-		return nil, fmt.Errorf("no images exist given constraints")
-	}
 	imageFamily := GetImageFamily(nodeClass.Spec.ImageFamily, options)
 	res := make([]*LaunchTemplate, 0)
-	for _, image := range images {
-		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, image.Id, options)
+	for imageId := range mappedImages {
+		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, imageId, options)
 		if err != nil {
 			return nil, err
 		}
