@@ -460,8 +460,6 @@ spec:
                             - operator
                           type: object
                         type: array
-                    required:
-                      - requirements
                     type: object
                   type: array
                 securityGroups:

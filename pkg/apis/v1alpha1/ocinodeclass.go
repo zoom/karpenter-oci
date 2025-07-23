@@ -132,7 +132,7 @@ type Image struct {
 	Id            string                           `json:"id,omitempty"`
 	Name          string                           `json:"name,omitempty"`
 	CompartmentId string                           `json:"compartmentId,omitempty"`
-	Requirements  []corev1.NodeSelectorRequirement `json:"requirements"`
+	Requirements  []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
 }
 
 type SecurityGroup struct {
