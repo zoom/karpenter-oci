@@ -17,12 +17,15 @@ package status
 import (
 	"context"
 	"fmt"
-	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/providers/imagefamily"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"github.com/zoom/karpenter-oci/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
+	"sort"
 	"time"
 )
 
@@ -40,14 +43,28 @@ func (i *Image) Reconcile(ctx context.Context, nodeClass *v1alpha1.OciNodeClass)
 		nodeClass.StatusConditions().SetFalse(v1alpha1.ConditionTypeImageReady, "ImageNotFound", "Image spec did not match any images")
 		return reconcile.Result{}, nil
 	}
-	// todo filter the image with the arch requirement, like amd64 and arm64
-	nodeClass.Status.Images = lo.Map(images, func(image core.Image, _ int) *v1alpha1.Image {
+	sortImages := lo.Map(images, func(image internalmodel.WrapImage, _ int) *v1alpha1.Image {
+		reqs := lo.Map(image.Requirements.NodeSelectorRequirements(), func(item karpv1.NodeSelectorRequirementWithMinValues, _ int) corev1.NodeSelectorRequirement {
+			return item.NodeSelectorRequirement
+		})
+
+		sort.Slice(reqs, func(i, j int) bool {
+			if len(reqs[i].Key) != len(reqs[j].Key) {
+				return len(reqs[i].Key) < len(reqs[j].Key)
+			}
+			return reqs[i].Key < reqs[j].Key
+		})
 		return &v1alpha1.Image{
-			Id:            utils.ToString(image.Id),
-			Name:          utils.ToString(image.DisplayName),
-			CompartmentId: utils.ToString(image.CompartmentId),
+			Id:            utils.ToString(image.Image.Id),
+			Name:          utils.ToString(image.Image.DisplayName),
+			CompartmentId: utils.ToString(image.Image.CompartmentId),
+			Requirements:  reqs,
 		}
 	})
+	sort.Slice(sortImages, func(i, j int) bool {
+		return sortImages[i].Id < sortImages[j].Id
+	})
+	nodeClass.Status.Images = sortImages
 	nodeClass.StatusConditions().SetTrue(v1alpha1.ConditionTypeImageReady)
 	return reconcile.Result{RequeueAfter: 5 * time.Minute}, nil
 }

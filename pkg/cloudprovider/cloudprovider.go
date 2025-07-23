@@ -57,6 +57,22 @@ type CloudProvider struct {
 	recorder             events.Recorder
 }
 
+func (c *CloudProvider) RepairPolicies() []cloudprovider.RepairPolicy {
+	return []cloudprovider.RepairPolicy{
+		// Supported Kubelet Node Conditions
+		{
+			ConditionType:      v1.NodeReady,
+			ConditionStatus:    v1.ConditionFalse,
+			TolerationDuration: 30 * time.Minute,
+		},
+		{
+			ConditionType:      v1.NodeReady,
+			ConditionStatus:    v1.ConditionUnknown,
+			TolerationDuration: 30 * time.Minute,
+		},
+	}
+}
+
 func (c *CloudProvider) GetSupportedNodeClasses() []status.Object {
 	return []status.Object{&v1alpha1.OciNodeClass{}}
 }
@@ -138,14 +154,13 @@ func (c *CloudProvider) Get(ctx context.Context, providerID string) (*corev1.Nod
 	return c.instanceToNodeClaim(ctx, instance, instanceType), nil
 }
 
-// todo impl me
 func (c *CloudProvider) LivenessProbe(req *http.Request) error {
 	return nil
 }
 
 func (c *CloudProvider) GetInstanceTypes(ctx context.Context, nodePool *corev1.NodePool) ([]*cloudprovider.InstanceType, error) {
 	if nodePool == nil {
-		return c.instanceTypeProvider.List(ctx, &v1alpha1.KubeletConfiguration{}, &v1alpha1.OciNodeClass{})
+		return c.instanceTypeProvider.List(ctx, &v1alpha1.OciNodeClass{})
 	}
 	nodeClass, err := c.resolveNodeClassFromNodePool(ctx, nodePool)
 	if err != nil {
@@ -157,11 +172,7 @@ func (c *CloudProvider) GetInstanceTypes(ctx context.Context, nodePool *corev1.N
 		// as the cause.
 		return nil, cloudprovider.NewInsufficientCapacityError(fmt.Errorf("resolving node class, %w", err))
 	}
-	kubeletConfig, err := utils.GetKubletConfigurationWithNodePool(nodePool, nodeClass)
-	if err != nil {
-		return nil, err
-	}
-	instanceTypes, err := c.instanceTypeProvider.List(ctx, kubeletConfig, nodeClass)
+	instanceTypes, err := c.instanceTypeProvider.List(ctx, nodeClass)
 	if err != nil {
 		return nil, err
 	}
@@ -239,11 +250,7 @@ func (c *CloudProvider) resolveNodeClassFromNodePool(ctx context.Context, nodePo
 }
 
 func (c *CloudProvider) resolveInstanceTypes(ctx context.Context, nodeClaim *corev1.NodeClaim, nodeClass *v1alpha1.OciNodeClass) ([]*cloudprovider.InstanceType, error) {
-	kubeletConfig, err := utils.GetKubeletConfigurationWithNodeClaim(nodeClaim, nodeClass)
-	if err != nil {
-		return nil, fmt.Errorf("resovling kubelet configuration, %w", err)
-	}
-	instanceTypes, err := c.instanceTypeProvider.List(ctx, kubeletConfig, nodeClass)
+	instanceTypes, err := c.instanceTypeProvider.List(ctx, nodeClass)
 	if err != nil {
 		return nil, fmt.Errorf("getting instance types, %w", err)
 	}
@@ -312,7 +319,7 @@ func (c *CloudProvider) instanceToNodeClaim(ctx context.Context, i *core.Instanc
 
 	labels[corev1.CapacityTypeLabelKey] = corev1.CapacityTypeOnDemand
 	if i.PreemptibleInstanceConfig != nil {
-		labels[corev1.CapacityTypeLabelKey] = utils.CapacityTypePreemptible
+		labels[corev1.CapacityTypeLabelKey] = v1alpha1.CapacityTypePreemptible
 	}
 	if v, ok := i.DefinedTags[options.FromContext(ctx).TagNamespace][utils.SafeTagKey(corev1.NodePoolLabelKey)]; ok {
 		labels[corev1.NodePoolLabelKey] = v.(string)

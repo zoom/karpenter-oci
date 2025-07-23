@@ -2,7 +2,7 @@
 
 ## Description
 karpenter-oci is the oracle cloud implement of karpenter, it depends on [karpenter](https://github.com/kubernetes-sigs/karpenter). It supports OKE cluster, and self-managed cluster on oracle cloud.
-
+And you are interested in contribution, you can find the project from [karpenter-oci](https://github.com/zoom/karpenter-oci)
 ## Arch Overview
 ![Arch](designs/images/karpenter-oci-arch.png)
 
@@ -16,11 +16,13 @@ karpenter-oci is the oracle cloud implement of karpenter, it depends on [karpent
 7. Support VM and Bare Metal
 8. Support attachment of additional disk
 9. Support specifying the kubelet configuration
+
 ## Installation
+
 ### prepare
-1. create a compartment, karpenter-oci will launch instance in this compartment
-2. create an OKE cluster under the above compartment
-3. create policy in oracle console, the name could like karpenter-oke-policy, the statements as below
+-  create a compartment, karpenter-oci will launch instance in this compartment 
+- create an OKE cluster under the above compartment 
+- create policy in oracle console, the name could like karpenter-oke-policy, the statements as below
 ```
 Allow any-user to manage instance-family in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 Allow any-user to manage instances in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
@@ -36,19 +38,37 @@ Allow any-user to use network-security-groups in tenancy where all {request.prin
 Allow any-user to use vnics in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 Allow any-user to use tag-namespaces in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 ```
-4. create tag namespace, the namespace name could like `oke-karpenter-ns`, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.
+- create tag namespace, the namespace name could like `oke-karpenter-ns`, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.
 
-| key                              | description                                  |
-|:---------------------------------|:---------------------------------------------|
-| karpenter_k8s_oracle/ocinodeclass| the name of nodeclass used to crate instance |
-| karpenter_sh/managed-by          | the OKE cluster name                         |
-| karpenter_sh/nodepool            | the name of nodepool used to create instance |
+| key                               | description                                   |
+|:----------------------------------|:----------------------------------------------|
+| karpenter_k8s_oracle/ocinodeclass | the name of nodeclass used to crate instance  |
+| karpenter_sh/managed-by           | the OKE cluster name                          |
+| karpenter_sh/nodepool             | the name of nodepool used to create instance  |
+| karpenter_sh/nodeclaim            | the name of nodeclaim used to create instance |
 
 ### install
 replace the clusterName, clusterEndpoint, clusterDns, compartmentId, ociResourcePrincipalRegion with yours.
 ```
 kubectl apply -f ./pkg/apis/crds/
 helm upgrade --install karpenter ./charts/karpenter --namespace "karpenter" --create-namespace --set "settings.clusterName=karpenter-oci-test" --set "settings.clusterEndpoint=https://10.0.0.8:6443" --set "settings.clusterDns=10.96.5.5" --set "settings.compartmentId=ocid1.compartment.oc1..aaaaaaaa" --set "settings.ociResourcePrincipalRegion=us-ashburn-1"
+```
+
+or you can install from helm install
+```
+helm repo add <alias> https://zoom.github.io/karpenter-oci
+
+# If you had already added this repo earlier, run `helm repo update` to retrieve
+the latest versions of the packages.  You can then run `helm search repo
+<alias>` to see the charts.
+
+# To install the <chart-name> chart:
+
+    helm install my-<chart-name> <alias>/<chart-name>
+
+# To uninstall the chart:
+
+    helm uninstall my-<chart-name>
 ```
 setting details
 
@@ -58,7 +78,7 @@ setting details
 | clusterEndpoint            | api server private endpoint                                                                                                                |                              |
 | clusterDns                 | IP addresses for the cluster DNS server, general is core dns ip                                                                            |                              |
 | compartmentId              | the compartment id or your worker nodes                                                                                                    |                              |
-| ociResourcePrincipalRegion | the region your cluster belong to, refer [issue](https://github.com/oracle/oci-go-sdk/issues/489)                                          |                              |
+| ociResourcePrincipalRegion | the region your cluster belong to, refer [issue](https://github.com/oracle/oci-go-sdk/issues/489)                                                                                      |                              |
 | ociAuthMethods             | API_KEY, OKE, SESSION, INSTANCE_PRINCIPAL                                                                                                  | OKE                          |
 | flexCpuConstrainList       | to constrain the ocpu cores of flex instance, instance create in this cpu size list, ocpu is twice of vcpu                                 | "1,2,4,8,16,32,48,64,96,128" |
 | flexCpuMemRatios           | the ratios of vcpu and mem, eg. FLEX_CPU_MEM_RATIOS=2,4, if create flex instance with 2 cores(1 ocpu), mem should be 4Gi or 8Gi            | "2,4,8"                      |
@@ -208,6 +228,7 @@ If you meet any problem, welcome to raise a issue.
 | item                          | date      |
 |-------------------------------|-----------|
 | update karpenter core to v1.4 | 2025.June |
+
 ## Contributing
 Contributing is welcome, you can raise a PR to add new feature or fix bugs. We use `envtest` to run the test suite, better add the related test case in your commit.
 

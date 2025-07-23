@@ -16,18 +16,18 @@ package main
 
 import (
 	"github.com/samber/lo"
-	operator_alt "github.com/zoom/karpenter-oci/pkg/alt/karpenter-core/pkg/operator"
 	"github.com/zoom/karpenter-oci/pkg/controllers"
+	"sigs.k8s.io/karpenter/pkg/controllers/state"
 
 	"github.com/zoom/karpenter-oci/pkg/cloudprovider"
 	"github.com/zoom/karpenter-oci/pkg/operator"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider/metrics"
 	corecontrollers "sigs.k8s.io/karpenter/pkg/controllers"
-	corewebhooks "sigs.k8s.io/karpenter/pkg/webhooks"
+	coreoperator "sigs.k8s.io/karpenter/pkg/operator"
 )
 
 func main() {
-	ctx, op := operator.NewOperator(operator_alt.NewOperator())
+	ctx, op := operator.NewOperator(coreoperator.NewOperator())
 
 	ociCloudProvider := cloudprovider.New(
 		op.InstanceTypesProvider,
@@ -38,6 +38,7 @@ func main() {
 	)
 	lo.Must0(op.AddHealthzCheck("cloud-provider", ociCloudProvider.LivenessProbe))
 	cloudProvider := metrics.Decorate(ociCloudProvider)
+	clusterState := state.NewCluster(op.Clock, op.GetClient(), cloudProvider)
 	coreControllers := corecontrollers.NewControllers(
 		ctx,
 		op.Manager,
@@ -45,10 +46,10 @@ func main() {
 		op.GetClient(),
 		op.EventRecorder,
 		cloudProvider,
+		clusterState,
 	)
 	op.
 		WithControllers(ctx, coreControllers...).
-		WithWebhooks(ctx, corewebhooks.NewWebhooks()...).
 		WithControllers(ctx, controllers.NewControllers(
 			ctx,
 			op.GetClient(),
@@ -57,6 +58,7 @@ func main() {
 			op.ImageProvider,
 			op.SubnetProvider,
 			op.SecurityGroupProvider,
+			op.PricingProvider,
 		)...).
-		Start(ctx, cloudProvider)
+		Start(ctx)
 }

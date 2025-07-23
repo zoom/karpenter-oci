@@ -25,7 +25,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-	operator_alt "github.com/zoom/karpenter-oci/pkg/alt/karpenter-core/pkg/operator"
 	ocicache "github.com/zoom/karpenter-oci/pkg/cache"
 	"github.com/zoom/karpenter-oci/pkg/operator/oci/config"
 	metadata "github.com/zoom/karpenter-oci/pkg/operator/oci/instance"
@@ -44,6 +43,7 @@ import (
 	"knative.dev/pkg/ptr"
 	"os"
 	"os/user"
+	oreoperator "sigs.k8s.io/karpenter/pkg/operator"
 )
 
 const (
@@ -59,16 +59,17 @@ const (
 //}
 
 type Operator struct {
-	*operator_alt.Operator
+	*oreoperator.Operator
 
 	ImageProvider         *imagefamily.Provider
 	InstanceTypesProvider *instancetype.Provider
 	InstanceProvider      *instance.Provider
 	SubnetProvider        *subnet.Provider
 	SecurityGroupProvider *securitygroup.Provider
+	PricingProvider       pricing.Provider
 }
 
-func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.Context, *Operator) {
+func NewOperator(ctx context.Context, operator *oreoperator.Operator) (context.Context, *Operator) {
 	var configProvider common.ConfigurationProvider
 	authMethod := options.FromContext(ctx).OciAuthMethods
 	switch authMethod {
@@ -95,12 +96,6 @@ func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.
 	})
 	options.ToContext(ctx, option)
 
-	// price list syncer
-	priceSyncer := pricing.NewPriceListSyncer(option.PriceEndpoint, option.PriceSyncPeriod, option.UseLocalPriceList)
-	if !option.UseLocalPriceList {
-		lo.Must0(priceSyncer.Start(), "failed to sync price list")
-	}
-
 	region := lo.Must(configProvider.Region())
 	cmpClient := lo.Must(core.NewComputeClientWithConfigurationProvider(configProvider))
 	netClient := lo.Must(core.NewVirtualNetworkClientWithConfigurationProvider(configProvider))
@@ -110,8 +105,9 @@ func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.
 	imageResolver := imagefamily.NewResolver(imageProvider)
 	launchProvider := launchtemplate.NewDefaultProvider(imageResolver, lo.Must(GetCABundle(ctx, operator.GetConfig())), options.FromContext(ctx).ClusterEndpoint, options.FromContext(ctx).BootStrapToken)
 	unavailableOfferCache := ocicache.NewUnavailableOfferings()
+	pricingProvider := pricing.NewDefaultProvider(ctx, options.FromContext(ctx).PriceEndpoint)
 	instanceProvider := instance.NewProvider(cmpClient, subnetProvider, sgProvider, launchProvider, unavailableOfferCache)
-	instancetypeProvider := instancetype.NewProvider(region, cmpClient, cache.New(ocicache.InstanceTypesAndZonesTTL, ocicache.DefaultCleanupInterval), unavailableOfferCache, priceSyncer)
+	instancetypeProvider := instancetype.NewProvider(region, cmpClient, cache.New(ocicache.InstanceTypesAndZonesTTL, ocicache.DefaultCleanupInterval), unavailableOfferCache, pricingProvider)
 	return ctx, &Operator{
 		Operator:              operator,
 		ImageProvider:         imageProvider,
@@ -119,6 +115,7 @@ func NewOperator(ctx context.Context, operator *operator_alt.Operator) (context.
 		InstanceProvider:      instanceProvider,
 		SubnetProvider:        subnetProvider,
 		SecurityGroupProvider: sgProvider,
+		PricingProvider:       pricingProvider,
 	}
 }
 

@@ -15,14 +15,20 @@ limitations under the License.
 package pricing
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/zoom/karpenter-oci/pkg/operator/options"
+	"github.com/zoom/karpenter-oci/pkg/providers/internalmodel"
 	"io"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/karpenter/pkg/utils/pretty"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -153,7 +159,10 @@ type PriceCatalog struct {
 
 // FindPriceItems retrieves matching PriceItems for the given shape.
 func (catalog PriceCatalog) FindPriceItems(shape string) []Item {
-	parsedShape := ParseShape(shape)
+	parsedShape, err := ParseShape(shape)
+	if err != nil {
+		return nil
+	}
 
 	// match special case
 	if v, ok := specialTypeMap[parsedShape.ServiceType]; ok {
@@ -217,9 +226,12 @@ type ParsedShape struct {
 }
 
 // ParseShape Function to parse the shape string
-func ParseShape(shape string) ParsedShape {
-	items := strings.Split(shape, ".")
+func ParseShape(shape string) (ParsedShape, error) {
 	parsed := ParsedShape{}
+	items := strings.Split(shape, ".")
+	if len(items) < 2 {
+		return parsed, errors.New("invalid shape name")
+	}
 
 	// Determine service category
 	if strings.Contains(items[1], "GPU") {
@@ -272,7 +284,7 @@ func ParseShape(shape string) ParsedShape {
 		}
 	}
 
-	return parsed
+	return parsed, nil
 }
 
 // Check if a string is numeric
@@ -281,60 +293,75 @@ func isNumeric(s string) bool {
 	return err == nil
 }
 
-type PriceListSyncer struct {
-	Endpoint string
-
-	SyncPeriod int64
-
-	UseLocalPriceList bool
-
-	PriceCatalog PriceCatalog
+type Provider interface {
+	Price(shape *internalmodel.WrapShape) float32
+	UpdateOnDemandPricing(context.Context) error
 }
 
-func NewPriceListSyncer(endpoint string, syncPeriod int64, useLocalPriceList bool) *PriceListSyncer {
+type DefaultProvider struct {
+	muOnDemand   sync.RWMutex
+	cm           *pretty.ChangeMonitor
+	priceCatalog *PriceCatalog
+	endpoint     string
+}
 
-	return &PriceListSyncer{
-		Endpoint:          endpoint,
-		SyncPeriod:        syncPeriod,
-		UseLocalPriceList: useLocalPriceList,
+func NewDefaultProvider(ctx context.Context, endpoint string) *DefaultProvider {
+	p := &DefaultProvider{
+		endpoint: endpoint,
+		cm:       pretty.NewChangeMonitor(),
 	}
+	// sets the pricing data from the static default state for the provider
+	p.Reset(ctx)
+
+	return p
 }
 
-func (syncer *PriceListSyncer) Start() error {
+func (p *DefaultProvider) Price(shape *internalmodel.WrapShape) float32 {
+	p.muOnDemand.RLock()
+	defer p.muOnDemand.RUnlock()
+	price := Calculate(shape, p.priceCatalog)
+	return price
+}
 
-	if syncer.UseLocalPriceList {
-
-		err := json.Unmarshal([]byte(defaultPrice), &syncer.PriceCatalog)
-		if err != nil {
-			return err
-		}
+func (p *DefaultProvider) UpdateOnDemandPricing(ctx context.Context) error {
+	p.muOnDemand.Lock()
+	defer p.muOnDemand.Unlock()
+	if options.FromContext(ctx).UseLocalPriceList {
 		return nil
 	}
-
-	err := syncer.Get()
+	catalog, err := p.Get()
 	if err != nil {
-		return err
+		return fmt.Errorf("retreiving on-demand pricing data, %w", err)
 	}
-
-	go wait.Forever(func() {
-		_ = syncer.Get()
-
-	}, time.Duration(syncer.SyncPeriod)*time.Second)
-
+	p.priceCatalog = catalog
+	if p.cm.HasChanged("instance-type-prices", p.priceCatalog) {
+		log.FromContext(ctx).WithValues("instance-type-count", len(p.priceCatalog.Items)).V(1).Info("updated on-demand pricing")
+	}
 	return nil
 }
 
-func (syncer *PriceListSyncer) Get() error {
+func (p *DefaultProvider) Reset(ctx context.Context) {
+	staticCatalog := &PriceCatalog{}
+	err := json.Unmarshal([]byte(defaultPrice), &staticCatalog)
+	if err != nil {
+		log.FromContext(ctx).V(1).Error(err, "failed to unmarshal default static pricing data")
+		return
+	}
+
+	p.priceCatalog = staticCatalog
+}
+
+func (p *DefaultProvider) Get() (*PriceCatalog, error) {
 
 	fmt.Printf("%+v, sync price list\n", time.Now())
 	cli := http.Client{
 		Timeout: 30 * time.Second,
 	}
-	resp, err := cli.Get(syncer.Endpoint)
+	resp, err := cli.Get(p.endpoint)
 	if err != nil || resp.StatusCode > 299 {
 		//log.Log.Error(err, "failed to pull oci price list.\n")
 		fmt.Printf("failed to pull price list, %+v", err)
-		return err
+		return nil, err
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -346,19 +373,17 @@ func (syncer *PriceListSyncer) Get() error {
 
 	body, er := io.ReadAll(resp.Body)
 	if er != nil {
-		fmt.Printf("failed to read price list api, %+v\n", err)
-		return nil
+		return nil, fmt.Errorf("failed to read price list api, %+v", err)
 	}
 
-	var priceCatalog PriceCatalog
-	er = json.Unmarshal(body, &priceCatalog)
+	priceCatalog := &PriceCatalog{}
+	er = json.Unmarshal(body, priceCatalog)
 	if er != nil {
 		//log.Log.Error(err, "failed to decode oci price list.\n ")
-		return fmt.Errorf("failed to decode oci price list, %v", er)
+		return nil, fmt.Errorf("failed to decode oci price list, %v", er)
 	}
 
-	syncer.PriceCatalog = priceCatalog
-	return nil
+	return priceCatalog, nil
 }
 
 func parseCoreNumFromDisplayNum(displayName string) int {

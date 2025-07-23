@@ -177,7 +177,9 @@ func (c *CmpCli) TerminateInstance(ctx context.Context, request core.TerminateIn
 		var resp *core.TerminateInstanceResponse
 		instanceID := *input.InstanceId
 		if _, ok := c.Instances.LoadAndDelete(instanceID); ok {
-			resp = &core.TerminateInstanceResponse{}
+			resp = &core.TerminateInstanceResponse{RawResponse: &http.Response{
+				StatusCode: 200,
+			}}
 		}
 		return resp, nil
 	})

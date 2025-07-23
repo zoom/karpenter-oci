@@ -39,20 +39,20 @@ import (
 
 var ctx context.Context
 var env *coretest.Environment
-var awsEnv *test.Environment
+var ociEnv *test.Environment
 var terminationController *Controller
 
 func TestAPIs(t *testing.T) {
 	ctx = TestContextWithLogger(t)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "EC2NodeClass")
+	RunSpecs(t, "OciNodeClass")
 }
 
 var _ = BeforeSuite(func() {
 	env = coretest.NewEnvironment(coretest.WithCRDs(apis.CRDs...), coretest.WithCRDs(core_test_alpha1.CRDs...), coretest.WithFieldIndexers(test.OciNodeClassFieldIndexer(ctx)))
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
 	ctx = options.ToContext(ctx, test.Options())
-	awsEnv = test.NewEnvironment(ctx, env)
+	ociEnv = test.NewEnvironment(ctx, env)
 
 	terminationController = NewController(env.Client, events.NewRecorder(&record.FakeRecorder{}))
 })
@@ -63,7 +63,7 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = coreoptions.ToContext(ctx, coretest.Options())
-	awsEnv.Reset()
+	ociEnv.Reset()
 })
 
 var _ = AfterEach(func() {
@@ -76,7 +76,7 @@ var _ = Describe("NodeClass Termination", func() {
 		nodeClass = test.OciNodeClass()
 
 	})
-	It("should not delete the EC2NodeClass until all associated NodeClaims are terminated", func() {
+	It("should not delete the OciNodeClass until all associated NodeClaims are terminated", func() {
 		var nodeClaims []*karpv1.NodeClaim
 		for i := 0; i < 2; i++ {
 			nc := coretest.NodeClaim(karpv1.NodeClaim{

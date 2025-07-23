@@ -26,7 +26,7 @@ type UbuntuLinux struct {
 }
 
 func (a UbuntuLinux) UserData(kubeletConfig *v1alpha1.KubeletConfiguration, taints []v1.Taint, labels map[string]string, customUserData *string, preInstallScript *string) bootstrap.Bootstrapper {
-	return bootstrap.Custom{
+	return bootstrap.Ubuntu{
 		Options: bootstrap.Options{
 			ClusterName:      a.ClusterName,
 			ClusterEndpoint:  a.ClusterEndpoint,

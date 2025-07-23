@@ -16,6 +16,10 @@ package subnet_test
 
 import (
 	"context"
+	"sort"
+	"sync"
+	"testing"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/zoom/karpenter-oci/pkg/apis"
@@ -24,9 +28,6 @@ import (
 	"github.com/zoom/karpenter-oci/pkg/test"
 	"sigs.k8s.io/karpenter/pkg/test/expectations"
 	coretestv1alpha1 "sigs.k8s.io/karpenter/pkg/test/v1alpha1"
-	"sort"
-	"sync"
-	"testing"
 
 	"github.com/samber/lo"
 
@@ -105,7 +106,7 @@ var _ = Describe("SubnetProvider", func() {
 				nodeClass.Spec.SubnetSelector = []v1alpha1.SubnetSelectorTerm{{
 					Name: lo.FromPtr[string](subnet.DisplayName),
 				}}
-				// Call list to request from aws and store in the cache
+				// Call list to request from oci and store in the cache
 				_, err := ociEnv.SubnetProvider.List(ctx, nodeClass)
 				Expect(err).To(BeNil())
 			}
@@ -140,12 +141,14 @@ var _ = Describe("SubnetProvider", func() {
 						Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaaa"),
 						LifecycleState: core.SubnetLifecycleStateAvailable,
 						DisplayName:    common.String("private-1"),
+						CidrBlock:      common.String("10.0.0.0/24"),
 					},
 					{
 						CompartmentId:  common.String("ocid1.compartment.oc1..aaaaaaaa"),
 						Id:             common.String("ocid1.subnet.oc1.iad.aaaaaaab"),
 						LifecycleState: core.SubnetLifecycleStateAvailable,
 						DisplayName:    common.String("private-1"),
+						CidrBlock:      common.String("10.0.0.10/24"),
 					},
 				}))
 			}()

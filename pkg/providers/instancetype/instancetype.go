@@ -3,7 +3,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,20 +44,22 @@ const (
 	InstanceTypesCacheKey = "types"
 )
 
+var supportInstanceTypes = []string{v1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible}
+
 type Provider struct {
 	region               string
 	compClient           api.ComputeClient
 	mu                   sync.Mutex
 	cache                *cache.Cache
 	unavailableOfferings *ocicache.UnavailableOfferings
-	priceSyncer          *pricing.PriceListSyncer
+	priceProvider        pricing.Provider
 }
 
-func NewProvider(region string, compClient api.ComputeClient, cache *cache.Cache, unavailableOfferings *ocicache.UnavailableOfferings, priceSyncer *pricing.PriceListSyncer) *Provider {
-	return &Provider{region: region, compClient: compClient, cache: cache, unavailableOfferings: unavailableOfferings, priceSyncer: priceSyncer}
+func NewProvider(region string, compClient api.ComputeClient, cache *cache.Cache, unavailableOfferings *ocicache.UnavailableOfferings, priceProvide pricing.Provider) *Provider {
+	return &Provider{region: region, compClient: compClient, cache: cache, unavailableOfferings: unavailableOfferings, priceProvider: priceProvide}
 }
 
-func (p *Provider) List(ctx context.Context, kc *v1alpha1.KubeletConfiguration, nodeClass *v1alpha1.OciNodeClass) ([]*cloudprovider.InstanceType, error) {
+func (p *Provider) List(ctx context.Context, nodeClass *v1alpha1.OciNodeClass) ([]*cloudprovider.InstanceType, error) {
 
 	wrapShapes, err := p.ListInstanceType(ctx)
 	if err != nil {
@@ -65,78 +67,62 @@ func (p *Provider) List(ctx context.Context, kc *v1alpha1.KubeletConfiguration, 
 	}
 	instanceTypes := make([]*cloudprovider.InstanceType, 0)
 	for _, wrapped := range wrapShapes {
-		// todo offers
-		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, kc, p.region, wrapped.AvailableDomains, p.CreateOfferings(wrapped, sets.New(wrapped.AvailableDomains...))))
+		instanceTypes = append(instanceTypes, NewInstanceType(ctx, wrapped, nodeClass, p.region, wrapped.AvailableDomains, p.CreateOfferings(ctx, wrapped, sets.New(wrapped.AvailableDomains...))))
 	}
 	return instanceTypes, nil
 
 }
 
-func (p *Provider) CreateOfferings(shape *internalmodel.WrapShape, zones sets.Set[string]) []cloudprovider.Offering {
-	var offerings []cloudprovider.Offering
+func (p *Provider) CreateOfferings(ctx context.Context, shape *internalmodel.WrapShape, zones sets.Set[string]) []*cloudprovider.Offering {
+	var offerings []*cloudprovider.Offering
 
-	var priceCatalog *pricing.PriceCatalog
-	if p.priceSyncer != nil {
-		priceCatalog = &p.priceSyncer.PriceCatalog
-	}
-	basePrice := float64(pricing.Calculate(shape, priceCatalog))
-
-	// only on-demand support
 	for zone := range zones {
-		// Add preemptible offering with lower price (higher priority)
-		isPreemptibleUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, utils.CapacityTypePreemptible)
-		if !isPreemptibleUnavailable {
-			// Lower price means higher priority when sorting by price
-			preemptiblePrice := basePrice * 0.5
+		for _, capacityType := range supportInstanceTypes {
+			// exclude any offerings that have recently seen an insufficient capacity error
+			isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, capacityType)
 
-			offerings = append(offerings, cloudprovider.Offering{
+			price := float64(p.priceProvider.Price(shape))
+			if capacityType == v1alpha1.CapacityTypePreemptible {
+				// Filters shapes that preemptible is supported
+				if supportPreemptible(ctx, *shape.Shape.Shape) {
+					// Preemptible is 50% OFF of on-demand price
+					price = price * 0.5
+				} else {
+					// Non-VM shapes aren't supported as preemptible
+					isUnavailable = true
+				}
+			}
+			offerings = append(offerings, &cloudprovider.Offering{
 				Requirements: scheduling.NewRequirements(
-					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, utils.CapacityTypePreemptible),
+					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, capacityType),
 					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
 				),
-				Price:     preemptiblePrice,
-				Available: true,
+				Price:     price,
+				Available: !isUnavailable,
 			})
+			// metric
+			// add ondemand instances metrics
+			instanceTypeOfferingAvailable.With(prometheus.Labels{
+				instanceTypeLabel: *shape.Shape.Shape,
+				capacityTypeLabel: capacityType,
+				zoneLabel:         zone,
+			}).Set(float64(lo.Ternary(!isUnavailable, 1, 0)))
+
+			instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
+				instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
+				capacityTypeLabel: capacityType,
+				zoneLabel:         zone,
+			}).Set(price)
 		}
-
-		// exclude any offerings that have recently seen an insufficient capacity error
-		isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, v1.CapacityTypeOnDemand) // todo support pricing calculate
-
-		price := float64(pricing.Calculate(shape, priceCatalog))
-		offerings = append(offerings, cloudprovider.Offering{
-			Requirements: scheduling.NewRequirements(
-				scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, v1.CapacityTypeOnDemand),
-				scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
-			),
-			Price:     price,
-			Available: !isUnavailable,
-		})
-		// metric
-		// add preemptible metrics
-		instanceTypeOfferingAvailable.With(prometheus.Labels{
-			instanceTypeLabel: *shape.Shape.Shape,
-			capacityTypeLabel: utils.CapacityTypePreemptible,
-			zoneLabel:         zone,
-		}).Set(float64(lo.Ternary(!isPreemptibleUnavailable, 1, 0)))
-		// add ondemand instances metrics
-		instanceTypeOfferingAvailable.With(prometheus.Labels{
-			instanceTypeLabel: *shape.Shape.Shape,
-			capacityTypeLabel: v1.CapacityTypeOnDemand,
-			zoneLabel:         zone,
-		}).Set(float64(lo.Ternary(!isUnavailable, 1, 0)))
-
-		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
-			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
-			capacityTypeLabel: v1.CapacityTypeOnDemand,
-			zoneLabel:         zone,
-		}).Set(price)
-		instanceTypeOfferingPriceEstimate.With(prometheus.Labels{
-			instanceTypeLabel: fmt.Sprintf("%s_%d_%d", *shape.Shape.Shape, shape.CalcCpu/2, shape.CalMemInGBs),
-			capacityTypeLabel: utils.CapacityTypePreemptible,
-			zoneLabel:         zone,
-		}).Set(price)
 	}
 	return offerings
+}
+
+func supportPreemptible(ctx context.Context, shapeName string) bool {
+	preemptibleList := strings.Split(options.FromContext(ctx).PreemptibleShapes, ",")
+	excludeList := strings.Split(options.FromContext(ctx).PreemptibleExcludeShapes, ",")
+	return lo.ContainsBy(preemptibleList, func(s string) bool { return strings.HasPrefix(shapeName, s) }) &&
+		!lo.ContainsBy(excludeList, func(s string) bool { return strings.HasPrefix(shapeName, s) })
 }
 
 func (p *Provider) ListInstanceType(ctx context.Context) (map[string]*internalmodel.WrapShape, error) {
@@ -211,10 +197,11 @@ func toWrapShape(ctx context.Context, shapes []core.Shape, ad string) []*interna
 			wrapShapes = append(wrapShapes, &internalmodel.WrapShape{
 				Shape: shape,
 				// ocpus is twice vcpu
-				CalcCpu:          int64(*shape.Ocpus) * 2,
-				CalMemInGBs:      int64(*shape.MemoryInGBs),
-				AvailableDomains: []string{ad},
-				CalMaxVnic:       int64(*shape.MaxVnicAttachments),
+				CalcCpu:               int64(*shape.Ocpus) * 2,
+				CalMemInGBs:           int64(*shape.MemoryInGBs),
+				AvailableDomains:      []string{ad},
+				CalMaxVnic:            int64(*shape.MaxVnicAttachments),
+				CalMaxBandwidthInGbps: int64(*shape.NetworkingBandwidthInGbps),
 			})
 		}
 	}
@@ -225,6 +212,13 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 	flexCpuMemRatios := strings.Split(options.FromContext(ctx).FlexCpuMemRatios, ",")
 	constrainCpus := strings.Split(options.FromContext(ctx).FlexCpuConstrainList, ",")
 	wrapShapes := make([]*internalmodel.WrapShape, 0)
+
+	// Determine OCPU-to-vCPU multiplier based on shape
+	shapeName := *shape.Shape
+	ratioFactor := 2
+	if utils.IsA1FlexShape(shapeName) {
+		ratioFactor = 1
+	}
 	for i := 0; i < len(constrainCpus); i++ {
 		for _, ratio := range flexCpuMemRatios {
 			ratioInt, covErr := strconv.Atoi(ratio)
@@ -235,7 +229,7 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 			if covErr != nil {
 				continue
 			}
-			memInGBs := cpus * 2 * ratioInt
+			memInGBs := cpus * ratioFactor * ratioInt
 			if cpus < int(*shape.OcpuOptions.Min) || memInGBs < int(*shape.MemoryOptions.MinInGBs) {
 				continue
 			}
@@ -254,12 +248,20 @@ func splitFlexCpuMem(ctx context.Context, shape core.Shape, ad string) []*intern
 			} else {
 				calMaxVnic = int64(*shape.MaxVnicAttachments)
 			}
+			var calMaxBandwidth int64
+			if shape.NetworkingBandwidthOptions != nil && shape.NetworkingBandwidthOptions.DefaultPerOcpuInGbps != nil {
+				calMaxBandwidth = int64(*shape.NetworkingBandwidthOptions.DefaultPerOcpuInGbps) * int64(cpus)
+				calMaxBandwidth = max(int64(*shape.NetworkingBandwidthOptions.MinInGbps), min(int64(*shape.NetworkingBandwidthOptions.MaxInGbps), calMaxBandwidth))
+			} else {
+				calMaxBandwidth = int64(*shape.NetworkingBandwidthInGbps)
+			}
 			wrapShapes = append(wrapShapes, &internalmodel.WrapShape{
-				Shape:            shape,
-				CalcCpu:          int64(cpus) * 2,
-				CalMemInGBs:      int64(memInGBs),
-				AvailableDomains: []string{ad},
-				CalMaxVnic:       calMaxVnic,
+				Shape:                 shape,
+				CalcCpu:               int64(cpus * ratioFactor),
+				CalMemInGBs:           int64(memInGBs),
+				AvailableDomains:      []string{ad},
+				CalMaxVnic:            calMaxVnic,
+				CalMaxBandwidthInGbps: calMaxBandwidth,
 			})
 		}
 	}

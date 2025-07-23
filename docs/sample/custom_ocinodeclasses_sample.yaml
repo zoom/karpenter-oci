@@ -27,5 +27,5 @@ spec:
   userData: |
     #!/bin/bash -xe
     bash /etc/oke/oke-install.sh --apiserver-endpoint '10.0.0.10' --kubelet-ca-cert '==' \
-    –kubelet-extra-args '–node-labels="karpenter.sh/nodepool=karpenter-test,servicegroup=karpenter-test" --max-pods=110 --system-reserved="memory=100Mi" --eviction-hard="imagefs.inodesFree<10%,memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%,imagefs.available<15%"' \
-    –cluster-dns '10.96.5.5'
+    --kubelet-extra-args '--node-labels="karpenter.sh/nodepool=karpenter-test,servicegroup=karpenter-test" --max-pods=110 --system-reserved="memory=100Mi" --eviction-hard="imagefs.inodesFree<10%,memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%,imagefs.available<15%"' \
+    --cluster-dns '10.96.5.5'

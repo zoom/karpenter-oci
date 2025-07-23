@@ -71,7 +71,7 @@ var _ = BeforeSuite(func() {
 	fakeClock = &clock.FakeClock{}
 	cloudProvider = cloudprovider.New(ociEnv.InstanceTypesProvider, ociEnv.InstanceProvider, events.NewRecorder(&record.FakeRecorder{}),
 		env.Client, ociEnv.AMIProvider)
-	cluster = state.NewCluster(fakeClock, env.Client)
+	cluster = state.NewCluster(fakeClock, env.Client, cloudProvider)
 	prov = provisioning.NewProvisioner(env.Client, events.NewRecorder(&record.FakeRecorder{}), cloudProvider, cluster, fakeClock)
 })
 
@@ -117,7 +117,9 @@ var _ = Describe("LaunchTemplate Provider", func() {
 							},
 						},
 						NodeClassRef: &karpv1.NodeClassReference{
-							Name: nodeClass.Name,
+							Name:  nodeClass.Name,
+							Group: v1alpha1.Group,
+							Kind:  "OciNodeClass",
 						},
 					},
 				},
@@ -148,7 +150,7 @@ var _ = Describe("LaunchTemplate Provider", func() {
 			ExpectScheduled(ctx, env.Client, pod)
 			Expect(ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Len()).To(Equal(1))
 			createFleetInput := ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Pop()
-			Expect(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace]).To(HaveLen(5))
+			Expect(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace]).To(HaveLen(6))
 
 			// tags should be included in instance
 			ExpectTags(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace], nodeClass.Spec.Tags)

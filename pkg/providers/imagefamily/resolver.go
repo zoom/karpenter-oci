@@ -20,10 +20,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/providers/imagefamily/bootstrap"
-	"github.com/zoom/karpenter-oci/pkg/utils"
 	core "k8s.io/api/core/v1"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
+	"sigs.k8s.io/karpenter/pkg/scheduling"
 )
 
 const (
@@ -71,23 +71,39 @@ type ImageFamily interface {
 }
 
 func (r Resolver) Resolve(ctx context.Context, nodeClass *v1alpha1.OciNodeClass, nodeClaim *v1.NodeClaim, instanceType *cloudprovider.InstanceType, options *Options) ([]*LaunchTemplate, error) {
-	images, err := r.amiProvider.List(ctx, nodeClass)
-	if err != nil {
-		return nil, err
-	}
+	images := nodeClass.Status.Images
 	if len(images) == 0 {
-		return nil, fmt.Errorf("no images exist given constraints")
+		return nil, fmt.Errorf("no amis exist given constraints")
+	}
+	mappedImages := MapToInstanceTypes(instanceType, images)
+	if len(mappedImages) == 0 {
+		return nil, fmt.Errorf("no instance types satisfy requirements of images %v", lo.Uniq(lo.Map(images, func(a *v1alpha1.Image, _ int) string { return a.Id })))
 	}
 	imageFamily := GetImageFamily(nodeClass.Spec.ImageFamily, options)
 	res := make([]*LaunchTemplate, 0)
-	for _, image := range images {
-		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, *image.Id, options)
+	for imageId := range mappedImages {
+		temp, err := r.resolveLaunchTemplate(nodeClass, nodeClaim, instanceType, imageFamily, imageId, options)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, temp)
 	}
 	return res, nil
+}
+
+// MapToInstanceTypes returns a map of AMIIDs that are the most recent on creationDate to compatible instancetypes
+func MapToInstanceTypes(instanceType *cloudprovider.InstanceType, images []*v1alpha1.Image) map[string][]*cloudprovider.InstanceType {
+	imageId := map[string][]*cloudprovider.InstanceType{}
+	for _, image := range images {
+		if err := instanceType.Requirements.Compatible(
+			scheduling.NewNodeSelectorRequirements(image.Requirements...),
+			scheduling.AllowUndefinedWellKnownLabels,
+		); err == nil {
+			imageId[image.Id] = append(imageId[image.Id], instanceType)
+			break
+		}
+	}
+	return imageId
 }
 
 func GetImageFamily(imageFamily string, options *Options) ImageFamily {
@@ -104,12 +120,9 @@ func GetImageFamily(imageFamily string, options *Options) ImageFamily {
 }
 
 func (r Resolver) resolveLaunchTemplate(nodeClass *v1alpha1.OciNodeClass, nodeClaim *v1.NodeClaim, instanceType *cloudprovider.InstanceType, imageFamily ImageFamily, imageId string, options *Options) (*LaunchTemplate, error) {
-	kubeletConfig, err := utils.GetKubeletConfigurationWithNodeClaim(nodeClaim, nodeClass)
-	if err != nil {
-		return nil, fmt.Errorf("resolving kubelet configuration, %w", err)
-	}
-	if kubeletConfig == nil {
-		kubeletConfig = &v1alpha1.KubeletConfiguration{}
+	kubeletConfig := &v1alpha1.KubeletConfiguration{}
+	if nodeClass.Spec.Kubelet != nil {
+		kubeletConfig = nodeClass.Spec.Kubelet.DeepCopy()
 	}
 	// nolint:gosec
 	// We know that it's not possible to have values that would overflow int32 here since we control

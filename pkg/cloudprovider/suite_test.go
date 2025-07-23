@@ -18,8 +18,9 @@ import (
 	"context"
 	"github.com/awslabs/operatorpkg/object"
 	"github.com/awslabs/operatorpkg/status"
-
 	"github.com/oracle/oci-go-sdk/v65/common"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis"
@@ -74,7 +75,7 @@ var _ = BeforeSuite(func() {
 	recorder = events.NewRecorder(&record.FakeRecorder{})
 	cloudProvider = New(ociEnv.InstanceTypesProvider, ociEnv.InstanceProvider, recorder,
 		env.Client, ociEnv.AMIProvider)
-	cluster = state.NewCluster(fakeClock, env.Client)
+	cluster = state.NewCluster(fakeClock, env.Client, cloudProvider)
 	prov = provisioning.NewProvisioner(env.Client, recorder, cloudProvider, cluster, fakeClock)
 })
 
@@ -211,13 +212,21 @@ var _ = Describe("CloudProvider", func() {
 	Context("NodeClaim Drift", func() {
 
 		It("should return drift If NodeClass image is different from the nodeClaim image", func() {
-			instanceTypes, _ := cloudProvider.GetInstanceTypes(ctx, nodePool)
+			ExpectApplied(ctx, env.Client, nodeClass)
+
+			instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+			if err != nil {
+				log.FromContext(ctx).V(1).Error(err, "failed to get instance")
+			}
 
 			// Filter down to a single instance type
 			instanceTypes = lo.Filter(instanceTypes, func(i *cloudprovider.InstanceType, _ int) bool { return i.Name == "shape-1" })
 
 			// Since all the capacity pools are ICEd. This should return back an ICE error
-			instance, _ := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+			instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+			if err != nil {
+				log.FromContext(ctx).V(1).Error(err, "failed to create instance")
+			}
 
 			// update nodeclass image to shape-2
 			nodeClass.Status.Images = []*v1alpha1.Image{
@@ -225,6 +234,7 @@ var _ = Describe("CloudProvider", func() {
 					Id:            "ocid1.image.oc1.iad.shape-2",
 					Name:          "shape-2",
 					CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+					Requirements:  make([]v1.NodeSelectorRequirement, 0),
 				},
 			}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass, nodeClaim)
@@ -233,19 +243,29 @@ var _ = Describe("CloudProvider", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should return no drift If NodeClass image is same from the nodeClaim image", func() {
-			instanceTypes, _ := cloudProvider.GetInstanceTypes(ctx, nodePool)
+			ExpectApplied(ctx, env.Client, nodeClass)
 
+			instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+			if err != nil {
+				log.FromContext(ctx).V(1).Error(err, "failed to get instance types")
+			}
 			// Filter down to a single instance type
 			instanceTypes = lo.Filter(instanceTypes, func(i *cloudprovider.InstanceType, _ int) bool { return i.Name == "shape-1" })
 
 			// Since all the capacity pools are ICEd. This should return back an ICE error
-			instance, _ := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+			instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+			if err != nil {
+				log.FromContext(ctx).V(1).Error(err, "failed to create instance types")
+
+			}
+			Expect(err).To(BeNil())
 
 			nodeClass.Status.Images = []*v1alpha1.Image{
 				{
 					Id:            "ocid1.image.oc1.iad.aaaaaaaa",
 					Name:          "shape-1",
 					CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+					Requirements:  make([]v1.NodeSelectorRequirement, 0),
 				},
 			}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass, nodeClaim)
@@ -351,6 +371,7 @@ var _ = Describe("CloudProvider", func() {
 		})
 
 		It("no drift", func() {
+			ExpectApplied(ctx, env.Client, nodeClass)
 			CreateOciTestResource(nodePool, nodeClass, nodeClaim)
 			reason, err := cloudProvider.IsDrifted(ctx, nodeClaim)
 			Expect(reason).To(BeEmpty())
@@ -359,6 +380,7 @@ var _ = Describe("CloudProvider", func() {
 		})
 
 		It("drift if sg update", func() {
+			ExpectApplied(ctx, env.Client, nodeClass)
 			CreateOciTestResource(nodePool, nodeClass, nodeClaim)
 
 			nodeClass.Status.SecurityGroups = []*v1alpha1.SecurityGroup{
@@ -383,6 +405,7 @@ func CreateOciTestResource(nodePool *karpv1.NodePool, nodeClass *v1alpha1.OciNod
 			Id:            "ocid1.image.oc1.iad.aaaaaaaa",
 			Name:          "shape-1",
 			CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
+			Requirements:  make([]v1.NodeSelectorRequirement, 0),
 		},
 	}
 	nodeClass.Status.Subnets = []*v1alpha1.Subnet{
@@ -404,13 +427,19 @@ func CreateOciTestResource(nodePool *karpv1.NodePool, nodeClass *v1alpha1.OciNod
 	}
 
 	// create instance
-	instanceTypes, _ := cloudProvider.GetInstanceTypes(ctx, nodePool)
+	instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+	if err != nil {
+		log.FromContext(ctx).V(1).Error(err, "failed to get instance types")
+	}
 
 	// Filter down to a single instance type
 	instanceTypes = lo.Filter(instanceTypes, func(i *cloudprovider.InstanceType, _ int) bool { return i.Name == "shape-1" })
 
 	// Since all the capacity pools are ICEd. This should return back an ICE error
-	instance, _ := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+	instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+	if err != nil {
+		log.FromContext(ctx).V(1).Error(err, "failed to create instance types")
+	}
 	nodeClaim.Status.ProviderID = *instance.Id
 	ExpectApplied(ctx, env.Client, nodePool, nodeClass, nodeClaim)
 }

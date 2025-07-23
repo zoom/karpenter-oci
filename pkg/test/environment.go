@@ -16,6 +16,7 @@ package test
 
 import (
 	"context"
+	"github.com/zoom/karpenter-oci/pkg/providers/pricing"
 	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 
 	//nolint:revive,stylecheck
@@ -79,8 +80,9 @@ func NewEnvironment(ctx context.Context, env *coretest.Environment) *Environment
 	securityGroupProvider := securitygroup.NewProvider(vcnCli, sgCache)
 	amiProvider := imagefamily.NewProvider(cmpCli, amiCache)
 	amiResolver := imagefamily.NewResolver(amiProvider)
+	priceProvider := pricing.NewDefaultProvider(ctx, "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/")
 	unavailableOfferCache := ocicache.NewUnavailableOfferings()
-	instanceTypesProvider := instancetype.NewProvider("us-ashburn-1", cmpCli, instanceTypeCache, unavailableOfferCache, nil)
+	instanceTypesProvider := instancetype.NewProvider("us-ashburn-1", cmpCli, instanceTypeCache, unavailableOfferCache, priceProvider)
 	launchTemplateProvider :=
 		launchtemplate.NewDefaultProvider(
 			amiResolver,
