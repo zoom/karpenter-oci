@@ -66,14 +66,6 @@ func generateDefaultFlexCpuConstrainList() string {
 	return strings.Join(values, ",")
 }
 
-func generateDefaultFlexCpuConstrainList() string {
-	var values []string
-	for i := 1; i <= 256; i++ {
-		values = append(values, strconv.Itoa(i))
-	}
-	return strings.Join(values, ",")
-}
-
 func (o *Options) AddFlags(fs *coreoptions.FlagSet) {
 	fs.StringVar(&o.ClusterName, "cluster-name", env.WithDefaultString("CLUSTER_NAME", ""), "[REQUIRED] The kubernetes cluster name for resource discovery.")
 	fs.StringVar(&o.ClusterEndpoint, "cluster-endpoint", env.WithDefaultString("CLUSTER_ENDPOINT", ""), "The external kubernetes cluster endpoint for new nodes to connect with. If not specified, will discover the cluster endpoint using DescribeCluster API.")
