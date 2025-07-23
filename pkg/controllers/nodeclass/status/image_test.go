@@ -15,14 +15,12 @@ limitations under the License.
 package status
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/core"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	"github.com/zoom/karpenter-oci/pkg/test"
-	corev1 "k8s.io/api/core/v1"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	. "sigs.k8s.io/karpenter/pkg/test/expectations"
 )
 
@@ -48,7 +46,6 @@ var _ = Describe("NodeClass Image Status Controller", func() {
 				Id:            "ocid1.image.oc1..aaaaaaaa",
 				Name:          "Oracle-Linux-8.9-2024.01.26-0-OKE-1.27.10-679",
 				CompartmentId: "ocid1.compartment.oc1..aaaaaaaa",
-				Requirements:  []corev1.NodeSelectorRequirement{},
 			},
 			},
 		))
