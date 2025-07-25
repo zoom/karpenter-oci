@@ -265,11 +265,15 @@ func (p *Provider) Delete(ctx context.Context, id string) error {
 		PreserveBootVolume:                 common.Bool(false),
 		PreserveDataVolumesCreatedAtLaunch: common.Bool(false)}
 	resp, err := p.compClient.TerminateInstance(ctx, req)
+
 	if err != nil {
+		if resp.HTTPResponse() != nil {
+			status := resp.HTTPResponse().StatusCode
+			if status == http.StatusNotFound || status == http.StatusNoContent {
+				return corecloudprovider.NewNodeClaimNotFoundError(fmt.Errorf("instance already terminated: %w", err))
+			}
+		}
 		return err
-	}
-	if resp.HTTPResponse().StatusCode == http.StatusNotFound || resp.HTTPResponse().StatusCode == http.StatusNoContent {
-		return corecloudprovider.NewNodeClaimNotFoundError(fmt.Errorf("instance already terminated"))
 	}
 	return nil
 }
