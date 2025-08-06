@@ -1,14 +1,24 @@
 apiVersion: v1
 entries:
   karpenter:
-  - apiVersion: v2
-    appVersion: 1.4.1
-    created: "2025-07-16T15:52:13.070528+08:00"
-    description: update the karpenter-oci to 1.4.1
-    digest: 2276c0f709b078ac80fb3eaa05d76f96a5cdb9fa44adafbee67fa9941c448c48
-    name: karpenter
-    type: application
-    urls:
-    - https://zoom.github.io/karpenter-oci/karpenter-1.4.0-alpha02.tgz
-    version: 1.4.0-alpha02
-generated: "2025-07-16T15:52:13.069265+08:00"
+    - apiVersion: v2
+      appVersion: 1.4.1
+      created: "2025-08-06T15:28:38.188748+08:00"
+      description: update the karpenter-oci to 1.4.1
+      digest: 7688af89f084d3b0e265a70a7899594805b128c95927eb2ec0e5014d504623f0
+      name: karpenter
+      type: application
+      urls:
+        - https://zoom.github.io/karpenter-oci/charts/karpenter-1.4.1.tgz
+      version: 1.4.1
+    - apiVersion: v2
+      appVersion: 1.4.0-alpha02
+      created: "2025-08-06T15:28:38.188012+08:00"
+      description: update the karpenter-oci to 1.4.0-alpha02
+      digest: 2276c0f709b078ac80fb3eaa05d76f96a5cdb9fa44adafbee67fa9941c448c48
+      name: karpenter
+      type: application
+      urls:
+        - https://zoom.github.io/karpenter-oci/charts/karpenter-1.4.0-alpha02.tgz
+      version: 1.4.0-alpha02
+generated: "2025-08-06T15:28:38.186416+08:00"

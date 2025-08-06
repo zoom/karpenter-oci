@@ -54,21 +54,20 @@ kubectl apply -f ./pkg/apis/crds/
 helm upgrade --install karpenter ./charts/karpenter --namespace "karpenter" --create-namespace --set "settings.clusterName=karpenter-oci-test" --set "settings.clusterEndpoint=https://10.0.0.8:6443" --set "settings.clusterDns=10.96.5.5" --set "settings.compartmentId=ocid1.compartment.oc1..aaaaaaaa" --set "settings.ociResourcePrincipalRegion=us-ashburn-1"
 ```
 
-or you can install from helm install
+#### or you can install from helm git repo 
 ```
-helm repo add <alias> https://zoom.github.io/karpenter-oci
+helm repo add karpenter-oci https://zoom.github.io/karpenter-oci
+```
+If you had already added this repo earlier, run `helm repo update` to retrieve the latest versions of the packages.
+You can then run `helm search repo karpenter-oci` to see the charts.
 
-# If you had already added this repo earlier, run `helm repo update` to retrieve
-the latest versions of the packages.  You can then run `helm search repo
-<alias>` to see the charts.
-
-# To install the <chart-name> chart:
-
-    helm install my-<chart-name> <alias>/<chart-name>
-
-# To uninstall the chart:
-
-    helm uninstall my-<chart-name>
+To install the karpenter chart, also replace the clusterName, clusterEndpoint, clusterDns, compartmentId, ociResourcePrincipalRegion with yours:
+```
+helm install karpenter karpenter-oci/karpenter --version 1.4.1 --namespace "karpenter" --create-namespace --set "settings.clusterName=karpenter-oci-test" --set "settings.clusterEndpoint=https://10.0.0.8:6443" --set "settings.clusterDns=10.96.5.5" --set "settings.compartmentId=ocid1.compartment.oc1..aaaaaaaa" --set "settings.ociResourcePrincipalRegion=us-ashburn-1"
+```
+To uninstall the chart:
+```
+helm uninstall karpenter
 ```
 setting details
 
