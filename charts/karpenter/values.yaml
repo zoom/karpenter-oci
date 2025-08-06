@@ -93,9 +93,9 @@ controller:
     # -- Repository path to the controller image.
     repository: ocir.us-ashburn-1.oci.oraclecloud.com/idkx1lfgxgf7/karpenter/karpenter-oci/controller
     # -- Tag of the controller image.
-    tag: 1.4.1
+    tag: 1.4.2
     # -- SHA256 digest of the controller image.
-    digest: sha256:f9857b6468c0c363d05f01a442bb944c214a4ac7b0920660c9c35f8fb485ea76
+    digest: sha256:ecc908de047df153da4cb1f091ad02fc3277b914227559fb2fc9e51ed2106ad4
   # -- Additional environment variables for the controller pod.
   env: []
   envFrom: []
