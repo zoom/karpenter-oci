@@ -55,7 +55,8 @@ func (e OKE) okeBootstrapScript() string {
 		caBundleArg = fmt.Sprintf("--kubelet-ca-cert '%s'", *e.CABundle)
 	}
 	var userData bytes.Buffer
-	userData.WriteString("#!/bin/bash -xe\n")
+	userData.WriteString("#!/usr/bin/env bash\n")
+	userData.WriteString("set -euo pipefail\n")
 	// Due to the way bootstrap.sh is written, parameters should not be passed to it with an equal sign
 	url, _ := url.Parse(e.ClusterEndpoint)
 	userData.WriteString(fmt.Sprintf("bash /etc/oke/oke-install.sh --apiserver-endpoint '%s' %s", url.Hostname(), caBundleArg))
