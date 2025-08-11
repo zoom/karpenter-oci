@@ -54,6 +54,7 @@ func main() {
 			ctx,
 			op.GetClient(),
 			cloudProvider,
+			op.InstanceProvider,
 			op.EventRecorder,
 			op.ImageProvider,
 			op.SubnetProvider,

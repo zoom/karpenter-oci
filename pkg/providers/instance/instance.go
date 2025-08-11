@@ -344,3 +344,19 @@ func (p *Provider) GetSecurityGroups(ctx context.Context, vnics []core.VnicAttac
 
 	return p.securityGroupProvider.GetSecurityGroups(ctx, vnics, onlyPrimaryNic)
 }
+
+func (p *Provider) CreateTags(ctx context.Context, id string, tags map[string]string) error {
+	resp, err := p.compClient.UpdateInstance(ctx, core.UpdateInstanceRequest{
+		InstanceId: lo.ToPtr(id),
+		UpdateInstanceDetails: core.UpdateInstanceDetails{
+			FreeformTags: tags,
+		},
+	})
+	if resp.HTTPResponse() != nil && (resp.HTTPResponse().StatusCode == http.StatusNotFound || resp.HTTPResponse().StatusCode == http.StatusNoContent) {
+		return corecloudprovider.NewNodeClaimNotFoundError(fmt.Errorf("tagging instance, %w", err))
+	}
+	if err != nil {
+		return fmt.Errorf("tagging instance, %w", err)
+	}
+	return nil
+}

@@ -318,6 +318,13 @@ func (in *OciNodeClassSpec) DeepCopyInto(out *OciNodeClassSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.FreeFormTags != nil {
+		in, out := &in.FreeFormTags, &out.FreeFormTags
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Kubelet != nil {
 		in, out := &in.Kubelet, &out.Kubelet
 		*out = new(KubeletConfiguration)

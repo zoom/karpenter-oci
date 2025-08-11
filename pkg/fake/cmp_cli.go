@@ -54,6 +54,7 @@ type CmpBehavior struct {
 	GetVnicAttachmentBehavior   MockedFunction[core.ListVnicAttachmentsRequest, core.ListVnicAttachmentsResponse]
 	ListInstanceBehavior        MockedFunction[core.ListInstancesRequest, core.ListInstancesResponse]
 	CalledWithListImagesInput   AtomicPtrSlice[core.ListImagesRequest]
+	UpdateInstanceBehavior      MockedFunction[core.UpdateInstanceRequest, core.UpdateInstanceResponse]
 	Instances                   sync.Map
 	Vnics                       sync.Map
 	InsufficientCapacityPools   atomic.Slice[CapacityPool]
@@ -216,6 +217,36 @@ func (c *CmpCli) ListInstances(ctx context.Context, request core.ListInstancesRe
 			}),
 			OpcNextPage:  nil,
 			OpcRequestId: nil,
+		}, nil
+	})
+	return *ptr, err
+}
+
+func (c *CmpCli) UpdateInstance(ctx context.Context, request core.UpdateInstanceRequest) (response core.UpdateInstanceResponse, err error) {
+	ptr, err := c.UpdateInstanceBehavior.Invoke(&request, func(input *core.UpdateInstanceRequest) (*core.UpdateInstanceResponse, error) {
+		raw, ok := c.Instances.Load(lo.FromPtr(input.InstanceId))
+		if !ok {
+			return &core.UpdateInstanceResponse{
+				RawResponse: &http.Response{
+					StatusCode: http.StatusNotFound,
+				},
+			}, nil
+		}
+		instance := raw.(*core.Instance)
+
+		if instance.FreeformTags == nil {
+			instance.FreeformTags = make(map[string]string, len(input.FreeformTags))
+		}
+		for key, val := range input.FreeformTags {
+			instance.FreeformTags[key] = val
+		}
+		c.Instances.Swap(lo.FromPtr(instance.Id), instance)
+
+		return &core.UpdateInstanceResponse{
+			RawResponse: &http.Response{
+				StatusCode: http.StatusOK,
+			},
+			Instance: *instance,
 		}, nil
 	})
 	return *ptr, err
