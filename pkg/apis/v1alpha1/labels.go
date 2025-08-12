@@ -53,6 +53,7 @@ var (
 
 	AnnotationOciNodeClassHash        = Group + "/ocinodeclass-hash"
 	AnnotationOciNodeClassHashVersion = Group + "/ocinodeclass-hash-version"
+	AnnotationInstanceTagged          = Group + "/tagged"
 
 	ManagedByAnnotationKey = apis.Group + "/managed-by"
 

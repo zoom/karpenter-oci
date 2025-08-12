@@ -28,4 +28,5 @@ type ComputeClient interface {
 	ListInstances(ctx context.Context, request core.ListInstancesRequest) (response core.ListInstancesResponse, err error)
 	ListShapes(ctx context.Context, request core.ListShapesRequest) (response core.ListShapesResponse, err error)
 	ListVnicAttachments(ctx context.Context, request core.ListVnicAttachmentsRequest) (response core.ListVnicAttachmentsResponse, err error)
+	UpdateInstance(ctx context.Context, request core.UpdateInstanceRequest) (response core.UpdateInstanceResponse, err error)
 }

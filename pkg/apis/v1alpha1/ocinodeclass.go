@@ -66,6 +66,14 @@ type OciNodeClassSpec struct {
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.k8s.oracle/ocinodeclass",rule="self.all(k, k !='karpenter.k8s.oracle/ocinodeclass')"
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// FreeFormTags contains user-defined tags for OCI resources
+	// +kubebuilder:validation:XValidation:message="freeform tag keys cannot contain spaces",rule="self.all(k, !k.contains(' '))"
+	// +kubebuilder:validation:XValidation:message="freeform tag keys cannot contain dots",rule="self.all(k, !k.contains('.'))"
+	// +kubebuilder:validation:XValidation:message="freeform tag keys cannot exceed 100 characters",rule="self.all(k, size(k) <= 100)"
+	// +kubebuilder:validation:MaxProperties:=10
+	// +optional
+	FreeFormTags map[string]string `json:"freeFormTags,omitempty"`
 	// Kubelet defines args to be used when configuring kubelet on provisioned nodes.
 	// They are a subset of the upstream types, recognizing not all options may be supported.
 	// Wherever possible, the types and names should reflect the upstream kubelet types.

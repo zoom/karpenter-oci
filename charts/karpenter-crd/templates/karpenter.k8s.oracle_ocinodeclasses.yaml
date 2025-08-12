@@ -85,6 +85,19 @@ spec:
                     - bootVolumeSizeInGBs
                     - bootVolumeVpusPerGB
                   type: object
+                freeFormTags:
+                  additionalProperties:
+                    type: string
+                  description: FreeFormTags contains user-defined tags for OCI resources
+                  maxProperties: 10
+                  type: object
+                  x-kubernetes-validations:
+                    - message: freeform tag keys cannot contain spaces
+                      rule: self.all(k, !k.contains(' '))
+                    - message: freeform tag keys cannot contain dots
+                      rule: self.all(k, !k.contains('.'))
+                    - message: freeform tag keys cannot exceed 100 characters
+                      rule: self.all(k, size(k) <= 100)
                 imageFamily:
                   type: string
                 imageSelector:
