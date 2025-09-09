@@ -130,6 +130,6 @@ func (env *Environment) DefaultOciNodeClass() *v1alpha1.OciNodeClass {
 		},
 	}
 	nodeClass.Spec.VcnId = vcnId
-	nodeClass.Spec.Tags = map[string]string{}
+	nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{}
 	return nodeClass
 }

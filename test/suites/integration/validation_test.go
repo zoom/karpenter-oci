@@ -16,11 +16,13 @@ package integration_test
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	coretest "sigs.k8s.io/karpenter/pkg/test"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -167,24 +169,28 @@ var _ = Describe("Validation", func() {
 			}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 		})
-		It("should succeed when tags don't contain restricted keys", func() {
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/custom-key": "custom-value", "kubernetes.io/role/key": "custom-value"}
+		It("should error when tags contain restricted char", func() {
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.sh/custom-key": "custom-value"}}
+			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
+
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter_sh/custom key": "custom-value"}}
+			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
+
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter_sh/custom-key": "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).To(Succeed())
 		})
-		It("should error when tags contains a restricted key", func() {
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/nodepool": "custom-value"}
+		It("should error when tags key or value too long", func() {
+			random := strings.ReplaceAll(uuid.New().String(), "-", "")
+
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"short-key": "custom-value"}}
+			Expect(env.Client.Create(env.Context, nodeClass)).To(Succeed())
+
+			longKey := fmt.Sprintf("%s-%s-%s-%s", random, random, random, random)
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {longKey: "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/managed-by": env.ClusterName}
-			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
-
-			nodeClass.Spec.Tags = map[string]string{fmt.Sprintf("kubernetes.io/cluster/%s", env.ClusterName): "owned"}
-			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
-
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/nodeclaim": "custom-value"}
-			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
-
-			nodeClass.Spec.Tags = map[string]string{"karpenter.k8s.oracle/ocinodeclass": "custom-value"}
+			longvalue := fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s-%s", random, random, random, random, random, random, random, random, random)
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"longvalue": longvalue}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 		})
 		It("should fail when securityGroupSelectorTerms has id and other filters", func() {

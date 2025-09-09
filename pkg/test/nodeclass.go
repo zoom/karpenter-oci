@@ -45,7 +45,7 @@ func OciNodeClass(overrides ...v1alpha1.OciNodeClass) *v1alpha1.OciNodeClass {
 			}},
 			UserData:    common.String("#!/bin/bash"),
 			ImageFamily: v1alpha1.Ubuntu2204ImageFamily,
-			Tags:        map[string]string{"test_key": "test_val"},
+			DefinedTags: map[string]v1alpha1.DefinedTagValue{"tag_namespace": {"test_key": "test_val"}},
 			BootConfig: &v1alpha1.BootConfig{
 				BootVolumeSizeInGBs: 100,
 				BootVolumeVpusPerGB: 10,
