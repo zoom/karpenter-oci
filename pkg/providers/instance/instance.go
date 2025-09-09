@@ -123,7 +123,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 			ImageId:             common.String(template[0].ImageId),
 			BootVolumeVpusPerGB: common.Int64(nodeClass.Spec.BootConfig.BootVolumeVpusPerGB),
 			BootVolumeSizeInGBs: common.Int64(nodeClass.Spec.BootConfig.BootVolumeSizeInGBs)},
-		DefinedTags:        map[string]map[string]interface{}{options.FromContext(ctx).TagNamespace: getTags(ctx, nodeClass, nodeClaim)},
+		DefinedTags:        getTags(ctx, nodeClass, nodeClaim),
 		CompartmentId:      common.String(options.FromContext(ctx).CompartmentId),
 		DisplayName:        common.String(nodeClaim.Name),
 		AvailabilityDomain: common.String(ad),
@@ -206,14 +206,20 @@ func (p *Provider) FindLeastUtilizedSubnet(ctx context.Context, nodeClass *v1alp
 	return subnet, availableIPCount, nil
 }
 
-func getTags(ctx context.Context, nodeClass *v1alpha1.OciNodeClass, nodeClaim *corev1.NodeClaim) map[string]interface{} {
+func getTags(ctx context.Context, nodeClass *v1alpha1.OciNodeClass, nodeClaim *corev1.NodeClaim) map[string]map[string]interface{} {
+	tags := make(map[string]map[string]interface{})
+	karpenterTagNamespace := options.FromContext(ctx).TagNamespace
 	staticTags := map[string]string{
 		corev1.NodePoolLabelKey:         nodeClaim.Labels[corev1.NodePoolLabelKey],
 		v1alpha1.ManagedByAnnotationKey: options.FromContext(ctx).ClusterName,
 		v1alpha1.LabelNodeClass:         nodeClass.Name,
 		v1alpha1.LabelNodeClaim:         nodeClaim.Name,
 	}
-	return removeExcludingChars(48, staticTags, nodeClass.Spec.Tags)
+	tags[karpenterTagNamespace] = removeExcludingChars(48, staticTags)
+	for ns, kvs := range nodeClass.Spec.DefinedTags {
+		tags[ns] = lo.Assign(tags[ns], removeExcludingChars(48, kvs))
+	}
+	return tags
 }
 
 // https://docs.oracle.com/en-us/iaas/Content/Tagging/Concepts/taggingoverview.htm#limits

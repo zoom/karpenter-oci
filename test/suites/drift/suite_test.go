@@ -708,12 +708,12 @@ var _ = Describe("Drift", func() {
 			v1alpha1.AnnotationOciNodeClassHash:        "test-hash-1",
 			v1alpha1.AnnotationOciNodeClassHashVersion: "test-hash-version-1",
 		})
-		// Updating `nodeClass.Spec.Tags` would normally trigger drift on all nodeclaims using the
+		// Updating `nodeClass.Spec.DefinedTags` would normally trigger drift on all nodeclaims using the
 		// nodeclass. However, the ocinodeclass-hash-version does not match the controller hash version, so we will see that
 		// none of the nodeclaims will be drifted and all nodeclaims will have an updated `ocinodeclass-hash` and `ocinodeclass-hash-version` annotation
-		nodeClass.Spec.Tags = lo.Assign(nodeClass.Spec.Tags, map[string]string{
+		nodeClass.Spec.DefinedTags = lo.Assign(nodeClass.Spec.DefinedTags, map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {
 			"test-key": "test-value",
-		})
+		}})
 		nodeClaim.Annotations = lo.Assign(nodePool.Annotations, map[string]string{
 			v1alpha1.AnnotationOciNodeClassHash:        "test-hash-2",
 			v1alpha1.AnnotationOciNodeClassHashVersion: "test-hash-version-2",

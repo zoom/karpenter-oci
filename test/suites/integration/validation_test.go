@@ -168,23 +168,23 @@ var _ = Describe("Validation", func() {
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 		})
 		It("should succeed when tags don't contain restricted keys", func() {
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/custom-key": "custom-value", "kubernetes.io/role/key": "custom-value"}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.sh/custom-key": "custom-value", "kubernetes.io/role/key": "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).To(Succeed())
 		})
 		It("should error when tags contains a restricted key", func() {
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/nodepool": "custom-value"}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.sh/nodepool": "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/managed-by": env.ClusterName}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.sh/managed-by": env.ClusterName}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 
-			nodeClass.Spec.Tags = map[string]string{fmt.Sprintf("kubernetes.io/cluster/%s", env.ClusterName): "owned"}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {fmt.Sprintf("kubernetes.io/cluster/%s", env.ClusterName): "owned"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 
-			nodeClass.Spec.Tags = map[string]string{"karpenter.sh/nodeclaim": "custom-value"}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.sh/nodeclaim": "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 
-			nodeClass.Spec.Tags = map[string]string{"karpenter.k8s.oracle/ocinodeclass": "custom-value"}
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {"karpenter.k8s.oracle/ocinodeclass": "custom-value"}}
 			Expect(env.Client.Create(env.Context, nodeClass)).ToNot(Succeed())
 		})
 		It("should fail when securityGroupSelectorTerms has id and other filters", func() {

@@ -30,6 +30,13 @@ const (
 	ConditionTypeImageReady          = "ImageReady"
 )
 
+// +kubebuilder:validation:MaxProperties:=64
+// +kubebuilder:validation:XValidation:message="tag keys cannot contain dots",rule="self.all(k, !k.contains('.'))"
+// +kubebuilder:validation:XValidation:message="tag keys cannot contain spaces",rule="self.all(k, !k.contains(' '))"
+// +kubebuilder:validation:XValidation:message="tag keys cannot exceed 100 characters",rule="self.all(k, size(k) <= 100)"
+// +kubebuilder:validation:XValidation:message="tag values cannot exceed 256 characters",rule="self.all(k, size(self[k]) <= 256)"
+type DefinedTagValue map[string]string
+
 type OciNodeClassSpec struct {
 	VcnId string `json:"vcnId"`
 	// imageSelector is a list of or image selector terms. The terms are ORed.
@@ -58,6 +65,7 @@ type OciNodeClassSpec struct {
 	MetaData              map[string]string           `json:"metaData,omitempty"`
 	ImageFamily           string                      `json:"imageFamily"`
 	// Tags to be applied on instance resources
+	// deprecated, use DefinedTags instead
 	// +kubebuilder:validation:XValidation:message="empty tag keys aren't supported",rule="self.all(k, k != '')"
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching kubernetes.io/cluster/",rule="self.all(k, !k.startsWith('kubernetes.io/cluster') )"
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.sh/nodepool",rule="self.all(k, k != 'karpenter.sh/nodepool')"
@@ -65,7 +73,18 @@ type OciNodeClassSpec struct {
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.sh/managed-by",rule="self.all(k, k !='karpenter.sh/managed-by')"
 	// +kubebuilder:validation:XValidation:message="tag contains a restricted tag matching karpenter.k8s.oracle/ocinodeclass",rule="self.all(k, k !='karpenter.k8s.oracle/ocinodeclass')"
 	// +optional
+	// +kubebuilder:deprecatedversion
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// DefinedTags to be applied on instance resources
+	// First level map: namespace -> tag pairs, max 64 total flattened keys
+	// +kubebuilder:validation:MaxProperties:=64
+	// +kubebuilder:validation:XValidation:message="empty namespace keys aren't supported",rule="self.all(k, k != '')"
+	// +kubebuilder:validation:XValidation:message="namespace keys cannot contain dots",rule="self.all(k, !k.contains('.'))"
+	// +kubebuilder:validation:XValidation:message="namespace keys cannot contain spaces",rule="self.all(k, !k.contains(' '))"
+	// +kubebuilder:validation:XValidation:message="namespace keys cannot exceed 100 characters",rule="self.all(k, size(k) <= 100)"
+	// +optional
+	DefinedTags map[string]DefinedTagValue `json:"definedTags,omitempty"`
 
 	// FreeFormTags contains user-defined tags for OCI resources
 	// +kubebuilder:validation:XValidation:message="freeform tag keys cannot contain spaces",rule="self.all(k, !k.contains(' '))"
