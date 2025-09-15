@@ -20,9 +20,9 @@ And you are interested in contribution, you can find the project from [karpenter
 ## Installation
 
 ### prepare
--  create a compartment, karpenter-oci will launch instance in this compartment 
-- create an OKE cluster under the above compartment 
-- create policy in oracle console, the name could like karpenter-oke-policy, the statements as below
+- create a compartment, karpenter-oci will launch instance in this compartment 
+- create an OKE cluster in the created compartment 
+- create policy in oracle console for the Karpenter service account, the name could like karpenter-oke-policy, the statements as below:
 ```
 Allow any-user to manage instance-family in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 Allow any-user to manage instances in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
@@ -38,7 +38,11 @@ Allow any-user to use network-security-groups in tenancy where all {request.prin
 Allow any-user to use vnics in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 Allow any-user to use tag-namespaces in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
 ```
-- create tag namespace, the namespace name could like `oke-karpenter-ns`, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.
+- create a dynamic group and policy in the oracle console to support [Self-Managed Nodes](https://docs.oracle.com/en-us/iaas/Content/ContEng/Tasks/contengdynamicgrouppolicyforselfmanagednodes.htm)
+```
+Allow dynamic-group <dynamic-group-name> to {CLUSTER_JOIN} in compartment <compartment-name>
+```
+- create tag namespace inside the created compartment, the namespace name could like `oke-karpenter-ns`, the required keys show in below sheet, if you want to attach more customer tags, you also can add them in the namespace.
 
 | key                               | description                                   |
 |:----------------------------------|:----------------------------------------------|
