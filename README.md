@@ -163,7 +163,8 @@ the ocinodeclass is used for config the oracle cloud related resource, like OS i
 | subnetSelector                 | the name of the subnet which you want to create the worker nodes instance in                                               | yes      | oke-nodesubnet-quick-test                                                                                            |
 | securityGroupSelector          | the security groups you want to attach to the instance                                                                     | no       |                                                                                                                      |
 | tags                           | the tags you want to attach to the instance                                                                                | no       |                                                                                                                      |
-| metaData                       | specify for native cni cluster                                                                                             | no       | `{"oke-native-pod-networking":"true"}`                                                                               |
+| metaData                       | specify for native cni cluster or SSH key                                                                                  | no       | `oke-native-pod-networking: true`  `ssh_authorized_keys: <your_ssh_pub_key>`                                         |
+| agentList                      | a list of OCI agents to enable                                                                                             | no       | `- Bastion`                                                                                                          |
 | userData                       | customer userdata you want to run in the cloud-init script, it will execute before the kubelet start                       | no       |                                                                                                                      |
 | kubelet                        | customer kubelet config                                                                                                    | no       | [KubeletConfiguration](pkg/apis/v1alpha1/ocinodeclass.go)                                                            |
 
@@ -223,6 +224,28 @@ spec:
   subnetSelector: 
     - name: {{ .subnetName }}
   vcnId: {{ .vcnId }}
+```
+
+## Debugging
+To aid debugging, add the `metaData.ssh_authorized_keys` and `agentList` parameters to your `OciNodeClass`.
+```yaml
+apiVersion: karpenter.k8s.oracle/v1alpha1
+kind: OciNodeClass
+metadata:
+  name: karpenter-arm64-class
+spec:
+  ... <config> ...
+  agentList:
+    - Bastion
+  metaData:
+    ssh_authorized_keys: <your_ssh_pub_key>
+```
+You will then be able to use the OCI Bastion service, or directly SSH the instances.
+For example, ssh then dump the logs from the services:
+```
+ssh opc@my.instance.ip.addr
+journalctl -xefu kubelet
+journalctl -xefu oke    
 ```
 
 ## Support
