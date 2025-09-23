@@ -140,10 +140,10 @@ var _ = Describe("LaunchTemplate Provider", func() {
 	})
 	Context("Tags", func() {
 		It("should combine custom tags and static tags", func() {
-			nodeClass.Spec.Tags = map[string]string{
+			nodeClass.Spec.DefinedTags = map[string]v1alpha1.DefinedTagValue{options.FromContext(ctx).TagNamespace: {
 				"tag1": "tag1value",
 				"tag2": "tag2value",
-			}
+			}}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
 			pod := coretest.UnschedulablePod()
 			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
@@ -153,7 +153,7 @@ var _ = Describe("LaunchTemplate Provider", func() {
 			Expect(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace]).To(HaveLen(6))
 
 			// tags should be included in instance
-			ExpectTags(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace], nodeClass.Spec.Tags)
+			ExpectTags(createFleetInput.DefinedTags[options.FromContext(ctx).TagNamespace], nodeClass.Spec.DefinedTags[options.FromContext(ctx).TagNamespace])
 		})
 	})
 	Context("Block Device Mappings", func() {

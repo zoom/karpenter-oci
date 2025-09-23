@@ -102,11 +102,6 @@ var _ = Describe("Drift", func() {
 		nodeClass.Spec.UserData = nil
 		nodeClass.Spec.AgentList = []string{"Bastion"}
 
-		meta := map[string]string{
-			"ssh_authorized_keys":       "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC53opb4h2u3mAUQcnaHoN4ZNe+jVBftYM3oLnV3EVJos0gPo/nFKAgVFEpX33znlxilpCpxoHpD7/0iNBhsXCAKVZqh28iZbtniKYRkEZK9A5vncoe6h5bea1qySSvYBrIFoHfky2qttQzgzxfnEeY3xRhLdhmAHHeVsosqX5LQ25Y+6fW6W3GbKDer9ckWlE7TYsCVXVrZFWAtdNVRCdJUNRHANAH+sC+y60CIYuZbEgff0LgLz9L7R3fWZZZnb8zRWCoi73IB7HGGuKJFQaOpMoHAJAoupib7DJATtoF7D4bQKHTw3dz5xBgdNXL55iQppB5f/XwfgC7rsS9p76F oci_id_rsa",
-			"oke-native-pod-networking": "true",
-		}
-		nodeClass.Spec.MetaData = meta
 	})
 	Context("Budgets", func() {
 		It("should respect budgets for empty drift", func() {
@@ -146,11 +141,6 @@ var _ = Describe("Drift", func() {
 			nodeClass.Spec.UserData = nil
 			nodeClass.Spec.AgentList = []string{"Bastion"}
 
-			meta := map[string]string{
-				"ssh_authorized_keys":       "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC53opb4h2u3mAUQcnaHoN4ZNe+jVBftYM3oLnV3EVJos0gPo/nFKAgVFEpX33znlxilpCpxoHpD7/0iNBhsXCAKVZqh28iZbtniKYRkEZK9A5vncoe6h5bea1qySSvYBrIFoHfky2qttQzgzxfnEeY3xRhLdhmAHHeVsosqX5LQ25Y+6fW6W3GbKDer9ckWlE7TYsCVXVrZFWAtdNVRCdJUNRHANAH+sC+y60CIYuZbEgff0LgLz9L7R3fWZZZnb8zRWCoi73IB7HGGuKJFQaOpMoHAJAoupib7DJATtoF7D4bQKHTw3dz5xBgdNXL55iQppB5f/XwfgC7rsS9p76F oci_id_rsa",
-				"oke-native-pod-networking": "true",
-			}
-			nodeClass.Spec.MetaData = meta
 			env.ExpectCreated(nodeClass, nodePool, dep)
 
 			nodeClaims := env.EventuallyExpectCreatedNodeClaimCount("==", 3)
@@ -708,12 +698,12 @@ var _ = Describe("Drift", func() {
 			v1alpha1.AnnotationOciNodeClassHash:        "test-hash-1",
 			v1alpha1.AnnotationOciNodeClassHashVersion: "test-hash-version-1",
 		})
-		// Updating `nodeClass.Spec.Tags` would normally trigger drift on all nodeclaims using the
+		// Updating `nodeClass.Spec.DefinedTags` would normally trigger drift on all nodeclaims using the
 		// nodeclass. However, the ocinodeclass-hash-version does not match the controller hash version, so we will see that
 		// none of the nodeclaims will be drifted and all nodeclaims will have an updated `ocinodeclass-hash` and `ocinodeclass-hash-version` annotation
-		nodeClass.Spec.Tags = lo.Assign(nodeClass.Spec.Tags, map[string]string{
+		nodeClass.Spec.DefinedTags = lo.Assign(nodeClass.Spec.DefinedTags, map[string]v1alpha1.DefinedTagValue{env.TagNamespace: {
 			"test-key": "test-value",
-		})
+		}})
 		nodeClaim.Annotations = lo.Assign(nodePool.Annotations, map[string]string{
 			v1alpha1.AnnotationOciNodeClassHash:        "test-hash-2",
 			v1alpha1.AnnotationOciNodeClassHashVersion: "test-hash-version-2",

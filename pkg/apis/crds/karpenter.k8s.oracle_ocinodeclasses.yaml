@@ -85,6 +85,35 @@ spec:
                     - bootVolumeSizeInGBs
                     - bootVolumeVpusPerGB
                   type: object
+                definedTags:
+                  additionalProperties:
+                    additionalProperties:
+                      type: string
+                    maxProperties: 64
+                    type: object
+                    x-kubernetes-validations:
+                      - message: tag keys cannot contain dots
+                        rule: self.all(k, !k.contains('.'))
+                      - message: tag keys cannot contain spaces
+                        rule: self.all(k, !k.contains(' '))
+                      - message: tag keys cannot exceed 100 characters
+                        rule: self.all(k, size(k) <= 100)
+                      - message: tag values cannot exceed 256 characters
+                        rule: self.all(k, size(self[k]) <= 256)
+                  description: |-
+                    DefinedTags to be applied on instance resources
+                    First level map: namespace -> tag pairs, max 64 total flattened keys
+                  maxProperties: 64
+                  type: object
+                  x-kubernetes-validations:
+                    - message: empty namespace keys aren't supported
+                      rule: self.all(k, k != '')
+                    - message: namespace keys cannot contain dots
+                      rule: self.all(k, !k.contains('.'))
+                    - message: namespace keys cannot contain spaces
+                      rule: self.all(k, !k.contains(' '))
+                    - message: namespace keys cannot exceed 100 characters
+                      rule: self.all(k, size(k) <= 100)
                 freeFormTags:
                   additionalProperties:
                     type: string
@@ -346,7 +375,9 @@ spec:
                 tags:
                   additionalProperties:
                     type: string
-                  description: Tags to be applied on instance resources
+                  description: |-
+                    Tags to be applied on instance resources
+                    deprecated, use DefinedTags instead
                   type: object
                   x-kubernetes-validations:
                     - message: empty tag keys aren't supported
