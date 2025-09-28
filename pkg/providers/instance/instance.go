@@ -175,7 +175,15 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	// Send the request using the service client
 	resp, err := p.compClient.LaunchInstance(ctx, req)
 	if err != nil {
-		p.updateUnavailableOfferingsCache(ctx, err, instanceType.Name, zone)
+		if typed, ok := err.(common.ServiceError); ok {
+			// two cases treat as ICE, out of capacity and reach service limit
+			// for the second, you can request a service limit increase from the Console's Limits, Quotas and Usage page or from the Help menu.
+			if (typed.GetHTTPStatusCode() == 500 && strings.Contains(typed.GetMessage(), "Out of host capacity")) ||
+				(typed.GetHTTPStatusCode() == 400 && strings.Contains(typed.GetMessage(), "service limits were exceeded")) {
+				p.unavailableOfferings.MarkUnavailableForLaunchInstanceErr(ctx, err, corev1.CapacityTypeOnDemand, instanceType.Name, zone)
+				return nil, corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("InsufficientCapacityError: %s", typed.GetMessage()))
+			}
+		}
 		return nil, err
 	}
 	return &resp.Instance, nil
@@ -236,13 +244,6 @@ func removeExcludingChars(sizeLimit int, tags ...map[string]string) map[string]i
 	return res
 }
 
-// todo verify with oci response
-func (p *Provider) updateUnavailableOfferingsCache(ctx context.Context, err error, instancetype string, zone string) {
-	if corecloudprovider.IsInsufficientCapacityError(err) {
-		p.unavailableOfferings.MarkUnavailableForLaunchInstanceErr(ctx, err, corev1.CapacityTypeOnDemand, instancetype, zone)
-	}
-}
-
 func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudprovider.InstanceTypes) (*corecloudprovider.InstanceType, string) {
 	if len(instanceTypes) == 0 {
 		return nil, ""
@@ -261,6 +262,7 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 	zonesWithPriority := lo.Map(priorityOfferings, func(o *corecloudprovider.Offering, _ int) string {
 		return o.Requirements.Get(v1.LabelTopologyZone).Any()
 	})
+	// todo balance between different zone
 	mutable.Shuffle(zonesWithPriority)
 	return instanceType, zonesWithPriority[0]
 }
