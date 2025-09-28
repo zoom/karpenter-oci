@@ -60,6 +60,35 @@ type CmpBehavior struct {
 	InsufficientCapacityPools   atomic.Slice[CapacityPool]
 }
 
+type FakeServicefailure struct {
+	StatusCode   int
+	Code         string `json:"code,omitempty"`
+	Message      string `json:"message,omitempty"`
+	OpcRequestID string `json:"opc-request-id"`
+}
+
+func (se FakeServicefailure) GetHTTPStatusCode() int {
+	return se.StatusCode
+
+}
+
+func (se FakeServicefailure) GetMessage() string {
+	return se.Message
+}
+
+func (se FakeServicefailure) GetCode() string {
+	return se.Code
+}
+
+func (se FakeServicefailure) GetOpcRequestID() string {
+	return se.OpcRequestID
+}
+
+func (se FakeServicefailure) Error() string {
+	return fmt.Sprintf(`Error returned by Service. Http Status Code: %d. Error Code: %s. Opc request id: %s. Message: %s`,
+		se.StatusCode, se.Code, se.OpcRequestID, se.Message)
+}
+
 var defaultDescribeInstanceTypesOutput = core.ListShapesResponse{
 	Items: []core.Shape{
 		{Shape: common.String("shape-1"), IsFlexible: common.Bool(false), Ocpus: common.Float32(1), MemoryInGBs: common.Float32(4),
@@ -126,7 +155,7 @@ func (c *CmpCli) LaunchInstance(ctx context.Context, request core.LaunchInstance
 		var insufficientErr error
 		c.InsufficientCapacityPools.Range(func(pool CapacityPool) bool {
 			if pool.InstanceType == lo.FromPtr(request.Shape) && pool.Zone == strings.Split(lo.FromPtr(request.AvailabilityDomain), ":")[1] {
-				insufficientErr = corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("instance type is insufficient"))
+				insufficientErr = &FakeServicefailure{StatusCode: 500, Message: "Out of host capacity"}
 				return false
 			}
 			return true
