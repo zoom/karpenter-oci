@@ -15,6 +15,8 @@ limitations under the License.
 package main
 
 import (
+	_ "github.com/zoom/karpenter-oci/pkg/operator/oci/sdk/retrypolicy/initglobal"
+	
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/controllers"
 	"sigs.k8s.io/karpenter/pkg/controllers/state"
