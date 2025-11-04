@@ -142,13 +142,14 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 
 	// for flexible instance, specify the ocpu and memory
 	if instanceType.Requirements.Get(v1alpha1.LabelIsFlexible).Has("true") {
-		vcpuVal := instanceType.Requirements.Get(v1alpha1.LabelInstanceCPU).Values()
-		memoryInMiVal := instanceType.Requirements.Get(v1alpha1.LabelInstanceMemory).Values()
-		if len(vcpuVal) == 0 || len(memoryInMiVal) == 0 {
-			return nil, fmt.Errorf("failed to calculate cpu and memory for flex instance when creating instance, nodecliam: %s", nodeClaim.Name)
+		vcpu, err := getIntValFromRequirements(v1alpha1.LabelInstanceCPU, instanceType.Requirements)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate cpu flex instance when creating instance, nodecliam: %s, err: %s", nodeClaim.Name, err.Error())
 		}
-		vcpu, _ := strconv.Atoi(vcpuVal[0])
-		memoryInMi, _ := strconv.Atoi(memoryInMiVal[0])
+		memoryInMi, err := getIntValFromRequirements(v1alpha1.LabelInstanceMemory, instanceType.Requirements)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate memory for flex instance when creating instance, nodecliam: %s, err: %s", nodeClaim.Name, err.Error())
+		}
 		// Determine if it's an A1 shape (1 OCPU = 1 vCPU), otherwise assume 1 OCPU = 2 vCPU
 		ocpus := float32(vcpu)
 		if !utils.IsA1FlexShape(instanceType.Name) {
@@ -265,6 +266,15 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 	// todo balance between different zone
 	mutable.Shuffle(zonesWithPriority)
 	return instanceType, zonesWithPriority[0]
+}
+
+func getIntValFromRequirements(key string, requirements scheduling.Requirements) (int, error) {
+	val := requirements.Get(key).Values()
+	if len(val) == 0 {
+		return 0, fmt.Errorf("can't found key %s in requirements", key)
+	}
+	intVal, _ := strconv.Atoi(val[0])
+	return intVal, nil
 }
 
 func (p *Provider) Delete(ctx context.Context, id string) error {

@@ -1,6 +1,6 @@
 module github.com/zoom/karpenter-oci
 
-go 1.24.4
+go 1.24.9
 
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
@@ -27,7 +27,7 @@ require (
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	knative.dev/pkg v0.0.0-20240926013127-c4843b746d24
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/karpenter v1.4.0
+	sigs.k8s.io/karpenter v1.4.1
 )
 
 require (
@@ -96,3 +96,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace sigs.k8s.io/karpenter => github.com/zoom/karpenter v0.0.0-20251103062622-db1e770122f3

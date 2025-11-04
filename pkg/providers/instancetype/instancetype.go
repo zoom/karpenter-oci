@@ -92,13 +92,18 @@ func (p *Provider) CreateOfferings(ctx context.Context, shape *internalmodel.Wra
 					isUnavailable = true
 				}
 			}
+			offerReq := scheduling.NewRequirements(
+				scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, capacityType),
+				scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
+			)
+			if lo.FromPtr(shape.IsFlexible) {
+				offerReq.Add(scheduling.NewRequirement(v1alpha1.LabelInstanceCPU, corev1.NodeSelectorOpIn, fmt.Sprintf("%d", shape.CalcCpu)),
+					scheduling.NewRequirement(v1alpha1.LabelInstanceMemory, corev1.NodeSelectorOpIn, fmt.Sprintf("%d", shape.CalMemInGBs*1024)))
+			}
 			offerings = append(offerings, &cloudprovider.Offering{
-				Requirements: scheduling.NewRequirements(
-					scheduling.NewRequirement(v1.CapacityTypeLabelKey, corev1.NodeSelectorOpIn, capacityType),
-					scheduling.NewRequirement(corev1.LabelTopologyZone, corev1.NodeSelectorOpIn, zone),
-				),
-				Price:     price,
-				Available: !isUnavailable,
+				Requirements: offerReq,
+				Price:        price,
+				Available:    !isUnavailable,
 			})
 			// metric
 			// add ondemand instances metrics

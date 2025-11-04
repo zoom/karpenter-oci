@@ -16,21 +16,24 @@ package consolidation_test
 
 import (
 	"fmt"
-	"github.com/zoom/karpenter-oci/test/pkg/environment/common"
-	batchv1 "k8s.io/api/batch/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
-
+	"github.com/awslabs/operatorpkg/object"
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/apis/v1alpha1"
+	"github.com/zoom/karpenter-oci/test/pkg/debug"
+	"github.com/zoom/karpenter-oci/test/pkg/environment/common"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	karpv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	coretest "sigs.k8s.io/karpenter/pkg/test"
+	"strings"
 	"testing"
+	"time"
+
 	//"time"
 
 	environmentoci "github.com/zoom/karpenter-oci/test/pkg/environment/oci"
@@ -296,122 +299,121 @@ var _ = Describe("Consolidation", Ordered, func() {
 
 			env.ConsistentlyExpectDisruptionsUntilNoneLeft(3, 2, 10*time.Minute)
 		})
-		// todo fixme
-		//It("should respect budgets for non-empty replace consolidation", func() {
-		//	appLabels := map[string]string{"app": "large-app"}
-		//	// This test will hold consolidation until we are ready to execute it
-		//	nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("Never")
-		//
-		//	nodePool = coretest.ReplaceRequirements(nodePool,
-		//		karpv1.NodeSelectorRequirementWithMinValues{
-		//			NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-		//				Key:      v1alpha1.LabelInstanceCPU,
-		//				Operator: corev1.NodeSelectorOpIn,
-		//				Values:   []string{"4", "8"},
-		//			},
-		//		},
-		//		// Add an Exists operator so that we can select on a fake partition later
-		//		karpv1.NodeSelectorRequirementWithMinValues{
-		//			NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-		//				Key:      "test-partition",
-		//				Operator: corev1.NodeSelectorOpExists,
-		//			},
-		//		},
-		//	)
-		//	nodePool.Labels = appLabels
-		//	// We're expecting to create 5 nodes, so we'll expect to see at most 3 nodes deleting at one time.
-		//	nodePool.Spec.Disruption.Budgets = []karpv1.Budget{{
-		//		Nodes: "3",
-		//	}}
-		//
-		//	ds := coretest.DaemonSet(coretest.DaemonSetOptions{
-		//		Selector: appLabels,
-		//		PodOptions: coretest.PodOptions{
-		//			ObjectMeta: metav1.ObjectMeta{
-		//				Labels: appLabels,
-		//			},
-		//			// Each has 8 cpu, so each node should fit no more than 1 pod since each node will have.
-		//			// an equivalently sized daemonset
-		//			ResourceRequirements: corev1.ResourceRequirements{
-		//				Requests: corev1.ResourceList{
-		//					corev1.ResourceCPU: resource.MustParse("3"),
-		//				},
-		//			},
-		//		},
-		//	})
-		//
-		//	env.ExpectCreated(ds)
-		//
-		//	// Make 5 pods all with different deployments and different test partitions, so that each pod can be put
-		//	// on a separate node.
-		//	selector = labels.SelectorFromSet(appLabels)
-		//	numPods = 5
-		//	deployments := make([]*appsv1.Deployment, numPods)
-		//	for i := range lo.Range(int(numPods)) {
-		//		deployments[i] = coretest.Deployment(coretest.DeploymentOptions{
-		//			Replicas: 1,
-		//			PodOptions: coretest.PodOptions{
-		//				ObjectMeta: metav1.ObjectMeta{
-		//					Labels: appLabels,
-		//				},
-		//				NodeSelector: map[string]string{"test-partition": fmt.Sprintf("%d", i)},
-		//				// Each has 8 cpu, so each node should fit no more than 1 pod since each node will have.
-		//				// an equivalently sized daemonset
-		//				ResourceRequirements: corev1.ResourceRequirements{
-		//					Requests: corev1.ResourceList{
-		//						corev1.ResourceCPU: resource.MustParse("3"),
-		//					},
-		//				},
-		//			},
-		//		})
-		//	}
-		//
-		//	env.ExpectCreated(nodeClass, nodePool, deployments[0], deployments[1], deployments[2], deployments[3], deployments[4])
-		//
-		//	originalNodeClaims := env.EventuallyExpectCreatedNodeClaimCount("==", 5)
-		//	originalNodes := env.EventuallyExpectCreatedNodeCount("==", 5)
-		//
-		//	// Check that all daemonsets and deployment pods are online
-		//	env.EventuallyExpectHealthyPodCount(selector, int(numPods)*2)
-		//
-		//	By("cordoning and adding finalizer to the nodes")
-		//	// Add a finalizer to each node so that we can stop termination disruptions
-		//	for _, node := range originalNodes {
-		//		Expect(env.Client.Get(env.Context, client.ObjectKeyFromObject(node), node)).To(Succeed())
-		//		node.Finalizers = append(node.Finalizers, common.TestingFinalizer)
-		//		env.ExpectUpdated(node)
-		//	}
-		//
-		//	// Delete the daemonset so that the nodes can be consolidated to smaller size
-		//	env.ExpectDeleted(ds)
-		//	// Check that all daemonsets and deployment pods are online
-		//	env.EventuallyExpectHealthyPodCount(selector, int(numPods))
-		//
-		//	By("enabling consolidation")
-		//	nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
-		//	env.ExpectUpdated(nodePool)
-		//
-		//	// Ensure that we get three nodes tainted, and they have overlap during the consolidation
-		//	env.EventuallyExpectTaintedNodeCount("==", 3)
-		//	env.EventuallyExpectLaunchedNodeClaimCount("==", 8)
-		//	env.EventuallyExpectNodeCount("==", 8)
-		//
-		//	env.ConsistentlyExpectDisruptionsUntilNoneLeft(5, 3, 10*time.Minute)
-		//
-		//	for _, node := range originalNodes {
-		//		Expect(env.ExpectTestingFinalizerRemoved(node)).To(Succeed())
-		//	}
-		//	for _, nodeClaim := range originalNodeClaims {
-		//		Expect(env.ExpectTestingFinalizerRemoved(nodeClaim)).To(Succeed())
-		//	}
-		//	// Eventually expect all the nodes to be rolled and completely removed
-		//	// Since this completes the disruption operation, this also ensures that we aren't leaking nodes into subsequent
-		//	// tests since nodeclaims that are actively replacing but haven't brought-up nodes yet can register nodes later
-		//	env.EventuallyExpectNotFound(lo.Map(originalNodes, func(n *corev1.Node, _ int) client.Object { return n })...)
-		//	env.EventuallyExpectNotFound(lo.Map(originalNodeClaims, func(n *karpv1.NodeClaim, _ int) client.Object { return n })...)
-		//	env.ExpectNodeClaimCount("==", 5)
-		//	env.ExpectNodeCount("==", 5)
-		//})
+		It("should respect budgets for non-empty replace consolidation", func() {
+			appLabels := map[string]string{"app": "large-app"}
+			// This test will hold consolidation until we are ready to execute it
+			nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("Never")
+
+			nodePool = coretest.ReplaceRequirements(nodePool,
+				karpv1.NodeSelectorRequirementWithMinValues{
+					NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+						Key:      v1alpha1.LabelInstanceCPU,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"4", "8"},
+					},
+				},
+				// Add an Exists operator so that we can select on a fake partition later
+				karpv1.NodeSelectorRequirementWithMinValues{
+					NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+						Key:      "test-partition",
+						Operator: corev1.NodeSelectorOpExists,
+					},
+				},
+			)
+			nodePool.Labels = appLabels
+			// We're expecting to create 5 nodes, so we'll expect to see at most 3 nodes deleting at one time.
+			nodePool.Spec.Disruption.Budgets = []karpv1.Budget{{
+				Nodes: "3",
+			}}
+
+			ds := coretest.DaemonSet(coretest.DaemonSetOptions{
+				Selector: appLabels,
+				PodOptions: coretest.PodOptions{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: appLabels,
+					},
+					// Each has 8 cpu, so each node should fit no more than 1 pod since each node will have.
+					// an equivalently sized daemonset
+					ResourceRequirements: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("3"),
+						},
+					},
+				},
+			})
+
+			env.ExpectCreated(ds)
+
+			// Make 5 pods all with different deployments and different test partitions, so that each pod can be put
+			// on a separate node.
+			selector = labels.SelectorFromSet(appLabels)
+			numPods = 5
+			deployments := make([]*appsv1.Deployment, numPods)
+			for i := range lo.Range(int(numPods)) {
+				deployments[i] = coretest.Deployment(coretest.DeploymentOptions{
+					Replicas: 1,
+					PodOptions: coretest.PodOptions{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: appLabels,
+						},
+						NodeSelector: map[string]string{"test-partition": fmt.Sprintf("%d", i)},
+						// Each has 8 cpu, so each node should fit no more than 1 pod since each node will have.
+						// an equivalently sized daemonset
+						ResourceRequirements: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU: resource.MustParse("3"),
+							},
+						},
+					},
+				})
+			}
+
+			env.ExpectCreated(nodeClass, nodePool, deployments[0], deployments[1], deployments[2], deployments[3], deployments[4])
+
+			originalNodeClaims := env.EventuallyExpectCreatedNodeClaimCount("==", 5)
+			originalNodes := env.EventuallyExpectCreatedNodeCount("==", 5)
+
+			// Check that all daemonsets and deployment pods are online
+			env.EventuallyExpectHealthyPodCount(selector, int(numPods)*2)
+
+			By("cordoning and adding finalizer to the nodes")
+			// Add a finalizer to each node so that we can stop termination disruptions
+			for _, node := range originalNodes {
+				Expect(env.Client.Get(env.Context, client.ObjectKeyFromObject(node), node)).To(Succeed())
+				node.Finalizers = append(node.Finalizers, common.TestingFinalizer)
+				env.ExpectUpdated(node)
+			}
+
+			// Delete the daemonset so that the nodes can be consolidated to smaller size
+			env.ExpectDeleted(ds)
+			// Check that all daemonsets and deployment pods are online
+			env.EventuallyExpectHealthyPodCount(selector, int(numPods))
+
+			By("enabling consolidation")
+			nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
+			env.ExpectUpdated(nodePool)
+
+			// Ensure that we get three nodes tainted, and they have overlap during the consolidation
+			env.EventuallyExpectTaintedNodeCount("==", 3)
+			env.EventuallyExpectLaunchedNodeClaimCount("==", 8)
+			env.EventuallyExpectNodeCount("==", 8)
+
+			env.ConsistentlyExpectDisruptionsUntilNoneLeft(5, 3, 10*time.Minute)
+
+			for _, node := range originalNodes {
+				Expect(env.ExpectTestingFinalizerRemoved(node)).To(Succeed())
+			}
+			for _, nodeClaim := range originalNodeClaims {
+				Expect(env.ExpectTestingFinalizerRemoved(nodeClaim)).To(Succeed())
+			}
+			// Eventually expect all the nodes to be rolled and completely removed
+			// Since this completes the disruption operation, this also ensures that we aren't leaking nodes into subsequent
+			// tests since nodeclaims that are actively replacing but haven't brought-up nodes yet can register nodes later
+			env.EventuallyExpectNotFound(lo.Map(originalNodes, func(n *corev1.Node, _ int) client.Object { return n })...)
+			env.EventuallyExpectNotFound(lo.Map(originalNodeClaims, func(n *karpv1.NodeClaim, _ int) client.Object { return n })...)
+			env.ExpectNodeClaimCount("==", 5)
+			env.ExpectNodeCount("==", 5)
+		})
 		It("should not allow consolidation if the budget is fully blocking", func() {
 			// We're going to define a budget that doesn't allow any consolidation to happen
 			nodePool.Spec.Disruption.Budgets = []karpv1.Budget{{
@@ -479,238 +481,238 @@ var _ = Describe("Consolidation", Ordered, func() {
 			env.ConsistentlyExpectNoDisruptions(5, time.Minute)
 		})
 	})
-	// todo fixme
-	//DescribeTable("should consolidate nodes (delete)", Label(debug.NoWatch), Label(debug.NoEvents),
-	//	func(spotToSpot bool) {
-	//		nodePool := coretest.NodePool(karpv1.NodePool{
-	//			Spec: karpv1.NodePoolSpec{
-	//				Disruption: karpv1.Disruption{
-	//					ConsolidationPolicy: karpv1.ConsolidationPolicyWhenEmptyOrUnderutilized,
-	//					// Disable Consolidation until we're ready
-	//					ConsolidateAfter: karpv1.MustParseNillableDuration("Never"),
-	//				},
-	//				Template: karpv1.NodeClaimTemplate{
-	//					Spec: karpv1.NodeClaimTemplateSpec{
-	//						Requirements: []karpv1.NodeSelectorRequirementWithMinValues{
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      karpv1.CapacityTypeLabelKey,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   lo.Ternary(spotToSpot, []string{karpv1.CapacityTypeSpot}, []string{karpv1.CapacityTypeOnDemand}),
-	//								},
-	//							},
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      v1alpha1.LabelInstanceCPU,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   []string{"2", "4", "8"},
-	//								},
-	//							},
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      v1alpha1.LabelInstanceShapeName,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   []string{"VM.Standard.E4.Flex"},
-	//								},
-	//							},
-	//						},
-	//						NodeClassRef: &karpv1.NodeClassReference{
-	//							Group: object.GVK(nodeClass).Group,
-	//							Kind:  object.GVK(nodeClass).Kind,
-	//							Name:  nodeClass.Name,
-	//						},
-	//					},
-	//				},
-	//			},
-	//		})
-	//
-	//		var numPods int32 = 10
-	//		dep := coretest.Deployment(coretest.DeploymentOptions{
-	//			Replicas: numPods,
-	//			PodOptions: coretest.PodOptions{
-	//				ObjectMeta: metav1.ObjectMeta{
-	//					Labels: map[string]string{"app": "large-app"},
-	//				},
-	//				ResourceRequirements: corev1.ResourceRequirements{
-	//					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
-	//				},
-	//			},
-	//		})
-	//
-	//		selector := labels.SelectorFromSet(dep.Spec.Selector.MatchLabels)
-	//		env.ExpectCreatedNodeCount("==", 0)
-	//		env.ExpectCreated(nodePool, nodeClass, dep)
-	//
-	//		env.EventuallyExpectHealthyPodCount(selector, int(numPods))
-	//
-	//		// reduce the number of pods by 60%
-	//		dep.Spec.Replicas = lo.ToPtr[int32](4)
-	//		env.ExpectUpdated(dep)
-	//		env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, "<", 0.5)
-	//
-	//		// Enable consolidation as WhenEmptyOrUnderutilized doesn't allow a consolidateAfter value
-	//		nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
-	//		env.ExpectUpdated(nodePool)
-	//
-	//		// With consolidation enabled, we now must delete nodes
-	//		env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, ">", 0.6)
-	//
-	//		env.ExpectDeleted(dep)
-	//	},
-	//	Entry("if the nodes are on-demand nodes", false),
-	//)
-	// todo fixme
-	//DescribeTable("should consolidate nodes (replace)",
-	//	func(spotToSpot bool) {
-	//		nodePool := coretest.NodePool(karpv1.NodePool{
-	//			Spec: karpv1.NodePoolSpec{
-	//				Disruption: karpv1.Disruption{
-	//					ConsolidationPolicy: karpv1.ConsolidationPolicyWhenEmptyOrUnderutilized,
-	//					// Disable Consolidation until we're ready
-	//					ConsolidateAfter: karpv1.MustParseNillableDuration("Never"),
-	//				},
-	//				Template: karpv1.NodeClaimTemplate{
-	//					Spec: karpv1.NodeClaimTemplateSpec{
-	//						Requirements: []karpv1.NodeSelectorRequirementWithMinValues{
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      karpv1.CapacityTypeLabelKey,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   lo.Ternary(spotToSpot, []string{karpv1.CapacityTypeSpot}, []string{karpv1.CapacityTypeOnDemand}),
-	//								},
-	//							},
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      v1alpha1.LabelInstanceCPU,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   []string{"2", "8"},
-	//								},
-	//							},
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      v1alpha1.LabelInstanceShapeName,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   []string{"VM.Standard.E4.Flex"},
-	//								},
-	//							},
-	//							// Specify Linux in the NodePool to filter out Windows only DS when discovering DS overhead
-	//							{
-	//								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-	//									Key:      corev1.LabelOSStable,
-	//									Operator: corev1.NodeSelectorOpIn,
-	//									Values:   []string{string(corev1.Linux)},
-	//								},
-	//							},
-	//						},
-	//						NodeClassRef: &karpv1.NodeClassReference{
-	//							Group: object.GVK(nodeClass).Group,
-	//							Kind:  object.GVK(nodeClass).Kind,
-	//							Name:  nodeClass.Name,
-	//						},
-	//					},
-	//				},
-	//			},
-	//		})
-	//
-	//		var numPods int32 = 3
-	//		largeDep := coretest.Deployment(coretest.DeploymentOptions{
-	//			Replicas: numPods,
-	//			PodOptions: coretest.PodOptions{
-	//				ObjectMeta: metav1.ObjectMeta{
-	//					Labels: map[string]string{"app": "large-app"},
-	//				},
-	//				TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-	//					{
-	//						MaxSkew:           1,
-	//						TopologyKey:       corev1.LabelHostname,
-	//						WhenUnsatisfiable: corev1.DoNotSchedule,
-	//						LabelSelector: &metav1.LabelSelector{
-	//							MatchLabels: map[string]string{
-	//								"app": "large-app",
-	//							},
-	//						},
-	//					},
-	//				},
-	//				ResourceRequirements: corev1.ResourceRequirements{
-	//					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("4")},
-	//				},
-	//			},
-	//		})
-	//		smallDep := coretest.Deployment(coretest.DeploymentOptions{
-	//			Replicas: numPods,
-	//			PodOptions: coretest.PodOptions{
-	//				ObjectMeta: metav1.ObjectMeta{
-	//					Labels: map[string]string{"app": "small-app"},
-	//				},
-	//				TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
-	//					{
-	//						MaxSkew:           1,
-	//						TopologyKey:       corev1.LabelHostname,
-	//						WhenUnsatisfiable: corev1.DoNotSchedule,
-	//						LabelSelector: &metav1.LabelSelector{
-	//							MatchLabels: map[string]string{
-	//								"app": "small-app",
-	//							},
-	//						},
-	//					},
-	//				},
-	//				ResourceRequirements: corev1.ResourceRequirements{
-	//					Requests: corev1.ResourceList{
-	//						corev1.ResourceCPU: func() resource.Quantity {
-	//							dsOverhead := env.GetDaemonSetOverhead(nodePool)
-	//							base := lo.ToPtr(resource.MustParse("1000m"))
-	//							base.Sub(*dsOverhead.Cpu())
-	//							return *base
-	//						}(),
-	//					},
-	//				},
-	//			},
-	//		})
-	//
-	//		selector := labels.SelectorFromSet(largeDep.Spec.Selector.MatchLabels)
-	//		env.ExpectCreatedNodeCount("==", 0)
-	//		env.ExpectCreated(nodePool, nodeClass, largeDep, smallDep)
-	//
-	//		env.EventuallyExpectHealthyPodCount(selector, int(numPods))
-	//
-	//		// 3 nodes due to the anti-affinity rules
-	//		env.ExpectCreatedNodeCount("==", 3)
-	//
-	//		// scaling down the large deployment leaves only small pods on each node
-	//		largeDep.Spec.Replicas = lo.ToPtr[int32](0)
-	//		env.ExpectUpdated(largeDep)
-	//		env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, "<", 0.5)
-	//
-	//		nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
-	//		env.ExpectUpdated(nodePool)
-	//
-	//		// With consolidation enabled, we now must replace each node in turn to consolidate due to the anti-affinity
-	//		// rules on the smaller deployment.  The 8c nodes should go to a 2c node
-	//		env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, ">", 0.8)
-	//
-	//		var nodes corev1.NodeList
-	//		Expect(env.Client.List(env.Context, &nodes)).To(Succeed())
-	//		numLargeNodes := 0
-	//		numOtherNodes := 0
-	//		for _, n := range nodes.Items {
-	//			// only count the nodes created by the provisoiner
-	//			if n.Labels[karpv1.NodePoolLabelKey] != nodePool.Name {
-	//				continue
-	//			}
-	//			if strings.HasSuffix(n.Labels[v1alpha1.LabelInstanceCPU], "2") {
-	//				numLargeNodes++
-	//			} else {
-	//				numOtherNodes++
-	//			}
-	//		}
-	//
-	//		// all of the 8c nodes should have been replaced with 2c instance types
-	//		Expect(numLargeNodes).To(Equal(3))
-	//		// and we should have no other nodes
-	//		Expect(numOtherNodes).To(Equal(0))
-	//
-	//		env.ExpectDeleted(largeDep, smallDep)
-	//	},
-	//	Entry("if the nodes are on-demand nodes", false),
-	//)
+	DescribeTable("should consolidate nodes (delete)", Label(debug.NoWatch), Label(debug.NoEvents),
+		func(spotToSpot bool) {
+			nodePool := coretest.NodePool(karpv1.NodePool{
+				Spec: karpv1.NodePoolSpec{
+					Disruption: karpv1.Disruption{
+						ConsolidationPolicy: karpv1.ConsolidationPolicyWhenEmptyOrUnderutilized,
+						// Disable Consolidation until we're ready
+						ConsolidateAfter: karpv1.MustParseNillableDuration("Never"),
+					},
+					Template: karpv1.NodeClaimTemplate{
+						Spec: karpv1.NodeClaimTemplateSpec{
+							Requirements: []karpv1.NodeSelectorRequirementWithMinValues{
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      karpv1.CapacityTypeLabelKey,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   lo.Ternary(spotToSpot, []string{karpv1.CapacityTypeSpot}, []string{karpv1.CapacityTypeOnDemand}),
+									},
+								},
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      v1alpha1.LabelInstanceCPU,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{"4", "8"},
+									},
+								},
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      v1alpha1.LabelInstanceShapeName,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{"VM.Standard.E4.Flex"},
+									},
+								},
+							},
+							NodeClassRef: &karpv1.NodeClassReference{
+								Group: object.GVK(nodeClass).Group,
+								Kind:  object.GVK(nodeClass).Kind,
+								Name:  nodeClass.Name,
+							},
+						},
+					},
+				},
+			})
+
+			var numPods int32 = 10
+			dep := coretest.Deployment(coretest.DeploymentOptions{
+				Replicas: numPods,
+				PodOptions: coretest.PodOptions{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": "large-app"},
+					},
+					ResourceRequirements: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
+					},
+				},
+			})
+
+			selector := labels.SelectorFromSet(dep.Spec.Selector.MatchLabels)
+			env.ExpectCreatedNodeCount("==", 0)
+			env.ExpectCreated(nodePool, nodeClass, dep)
+
+			env.EventuallyExpectHealthyPodCount(selector, int(numPods))
+
+			// reduce the number of pods by 50%
+			dep.Spec.Replicas = lo.ToPtr[int32](5)
+			env.ExpectUpdated(dep)
+			// 1*4c node 1*8c node 5/12
+			env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, "<", 0.6)
+
+			// Enable consolidation as WhenEmptyOrUnderutilized doesn't allow a consolidateAfter value
+			nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
+			env.ExpectUpdated(nodePool)
+
+			// With consolidation enabled, we now must delete nodes
+			// after delete, only left 1*8c node, 5/8
+			env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, ">", 0.625)
+
+			env.ExpectDeleted(dep)
+		},
+		Entry("if the nodes are on-demand nodes", false),
+	)
+	DescribeTable("should consolidate nodes (replace)",
+		func(spotToSpot bool) {
+			nodePool := coretest.NodePool(karpv1.NodePool{
+				Spec: karpv1.NodePoolSpec{
+					Disruption: karpv1.Disruption{
+						ConsolidationPolicy: karpv1.ConsolidationPolicyWhenEmptyOrUnderutilized,
+						// Disable Consolidation until we're ready
+						ConsolidateAfter: karpv1.MustParseNillableDuration("Never"),
+					},
+					Template: karpv1.NodeClaimTemplate{
+						Spec: karpv1.NodeClaimTemplateSpec{
+							Requirements: []karpv1.NodeSelectorRequirementWithMinValues{
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      karpv1.CapacityTypeLabelKey,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   lo.Ternary(spotToSpot, []string{karpv1.CapacityTypeSpot}, []string{karpv1.CapacityTypeOnDemand}),
+									},
+								},
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      v1alpha1.LabelInstanceCPU,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{"2", "8"},
+									},
+								},
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      v1alpha1.LabelInstanceShapeName,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{"VM.Standard.E4.Flex"},
+									},
+								},
+								// Specify Linux in the NodePool to filter out Windows only DS when discovering DS overhead
+								{
+									NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+										Key:      corev1.LabelOSStable,
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{string(corev1.Linux)},
+									},
+								},
+							},
+							NodeClassRef: &karpv1.NodeClassReference{
+								Group: object.GVK(nodeClass).Group,
+								Kind:  object.GVK(nodeClass).Kind,
+								Name:  nodeClass.Name,
+							},
+						},
+					},
+				},
+			})
+
+			var numPods int32 = 3
+			largeDep := coretest.Deployment(coretest.DeploymentOptions{
+				Replicas: numPods,
+				PodOptions: coretest.PodOptions{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": "large-app"},
+					},
+					TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+						{
+							MaxSkew:           1,
+							TopologyKey:       corev1.LabelHostname,
+							WhenUnsatisfiable: corev1.DoNotSchedule,
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "large-app",
+								},
+							},
+						},
+					},
+					ResourceRequirements: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("4")},
+					},
+				},
+			})
+			smallDep := coretest.Deployment(coretest.DeploymentOptions{
+				Replicas: numPods,
+				PodOptions: coretest.PodOptions{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"app": "small-app"},
+					},
+					TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+						{
+							MaxSkew:           1,
+							TopologyKey:       corev1.LabelHostname,
+							WhenUnsatisfiable: corev1.DoNotSchedule,
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app": "small-app",
+								},
+							},
+						},
+					},
+					ResourceRequirements: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: func() resource.Quantity {
+								dsOverhead := env.GetDaemonSetOverhead(nodePool)
+								base := lo.ToPtr(resource.MustParse("1600m"))
+								base.Sub(*dsOverhead.Cpu())
+								return *base
+							}(),
+						},
+					},
+				},
+			})
+
+			selector := labels.SelectorFromSet(largeDep.Spec.Selector.MatchLabels)
+			env.ExpectCreatedNodeCount("==", 0)
+			env.ExpectCreated(nodePool, nodeClass, largeDep, smallDep)
+
+			env.EventuallyExpectHealthyPodCount(selector, int(numPods))
+
+			// 3 nodes due to the anti-affinity rules
+			env.ExpectCreatedNodeCount("==", 3)
+
+			// scaling down the large deployment leaves only small pods on each node
+			largeDep.Spec.Replicas = lo.ToPtr[int32](0)
+			env.ExpectUpdated(largeDep)
+			env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, "<", 0.5)
+
+			nodePool.Spec.Disruption.ConsolidateAfter = karpv1.MustParseNillableDuration("0s")
+			env.ExpectUpdated(nodePool)
+
+			// With consolidation enabled, we now must replace each node in turn to consolidate due to the anti-affinity
+			// rules on the smaller deployment.  The 8c nodes should go to a 2c node
+			env.EventuallyExpectAvgUtilization(corev1.ResourceCPU, ">", 0.8)
+
+			var nodes corev1.NodeList
+			Expect(env.Client.List(env.Context, &nodes)).To(Succeed())
+			numLargeNodes := 0
+			numOtherNodes := 0
+			for _, n := range nodes.Items {
+				// only count the nodes created by the provisoiner
+				if n.Labels[karpv1.NodePoolLabelKey] != nodePool.Name {
+					continue
+				}
+				if strings.HasSuffix(n.Labels[v1alpha1.LabelInstanceCPU], "2") {
+					numLargeNodes++
+				} else {
+					numOtherNodes++
+				}
+			}
+
+			// all of the 8c nodes should have been replaced with 2c instance types
+			Expect(numLargeNodes).To(Equal(3))
+			// and we should have no other nodes
+			Expect(numOtherNodes).To(Equal(0))
+
+			env.ExpectDeleted(largeDep, smallDep)
+		},
+		Entry("if the nodes are on-demand nodes", false),
+	)
 })
