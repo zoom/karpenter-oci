@@ -181,7 +181,7 @@ var _ = Describe("InstanceProvider", func() {
 			NodeSelectorRequirement: v1core.NodeSelectorRequirement{
 				Key:      v1.CapacityTypeLabelKey,
 				Operator: v1core.NodeSelectorOpIn,
-				Values:   []string{"preemptible"},
+				Values:   []string{v1.CapacityTypeSpot},
 			},
 		})
 

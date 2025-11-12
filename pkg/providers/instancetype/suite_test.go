@@ -660,9 +660,9 @@ var _ = Describe("InstanceTypeProvider", func() {
 				{CapacityType: karpv1.CapacityTypeOnDemand, InstanceType: "shape-3", Zone: "US-ASHBURN-AD-3"},
 			})
 
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", v1alpha1.CapacityTypePreemptible)
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", v1alpha1.CapacityTypePreemptible)
-			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", v1alpha1.CapacityTypePreemptible)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-1", karpv1.CapacityTypeSpot)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-2", karpv1.CapacityTypeSpot)
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "test", "shape-3", "US-ASHBURN-AD-3", karpv1.CapacityTypeSpot)
 
 			nodePool.Spec.Template.Spec.Requirements = nil
 			nodePool.Spec.Template.Spec.Requirements = append(nodePool.Spec.Template.Spec.Requirements, karpv1.NodeSelectorRequirementWithMinValues{
@@ -794,7 +794,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 					NodeSelectorRequirement: v1.NodeSelectorRequirement{
 						Key:      karpv1.CapacityTypeLabelKey,
 						Operator: v1.NodeSelectorOpIn,
-						Values:   []string{karpv1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible},
+						Values:   []string{karpv1.CapacityTypeOnDemand, karpv1.CapacityTypeSpot},
 					},
 				},
 			}
@@ -819,7 +819,7 @@ var _ = Describe("InstanceTypeProvider", func() {
 				},
 				NetworkingBandwidthInGbps: common.Float32(10), MaxVnicAttachments: common.Int(2)}})
 			pod := coretest.UnschedulablePod(coretest.PodOptions{
-				NodeSelector: map[string]string{karpv1.CapacityTypeLabelKey: "preemptible"},
+				NodeSelector: map[string]string{karpv1.CapacityTypeLabelKey: karpv1.CapacityTypeSpot},
 				ResourceRequirements: v1.ResourceRequirements{
 					Requests: v1.ResourceList{v1.ResourceCPU: resource.MustParse("1"), v1.ResourceMemory: resource.MustParse("5Gi")},
 				},

@@ -20,8 +20,8 @@ And you are interested in contribution, you can find the project from [karpenter
 ## Installation
 
 ### prepare
-- create a compartment, karpenter-oci will launch instance in this compartment 
-- create an OKE cluster in the created compartment 
+- create a compartment, karpenter-oci will launch instance in this compartment
+- create an OKE cluster in the created compartment
 - create policy in oracle console for the Karpenter service account, the name could like karpenter-oke-policy, the statements as below:
 ```
 Allow any-user to manage instance-family in tenancy where all {request.principal.type = 'workload',request.principal.namespace = 'karpenter',request.principal.service_account = 'karpenter'}
@@ -58,7 +58,7 @@ kubectl apply -f ./pkg/apis/crds/
 helm upgrade --install karpenter ./charts/karpenter --namespace "karpenter" --create-namespace --set "settings.clusterName=karpenter-oci-test" --set "settings.clusterEndpoint=https://10.0.0.8:6443" --set "settings.clusterDns=10.96.5.5" --set "settings.compartmentId=ocid1.compartment.oc1..aaaaaaaa" --set "settings.ociResourcePrincipalRegion=us-ashburn-1"
 ```
 
-#### or you can install from helm git repo 
+#### or you can install from helm git repo
 ```
 helm repo add karpenter-oci https://zoom.github.io/karpenter-oci
 ```
@@ -129,8 +129,8 @@ spec:
           operator: In
           values:
             - on-demand
-            ### if you wanna enable preemptible instances creation for lower cost, add below line.
-            - preemptible
+            ### if you wanna enable spot(preemptible) instances creation for lower cost, add below line.
+            - spot
         - key: karpenter.k8s.oracle/instance-shape-name
           operator: In
           values:
@@ -169,7 +169,7 @@ the ocinodeclass is used for config the oracle cloud related resource, like OS i
 | kubelet                        | customer kubelet config                                                                                                    | no       | [KubeletConfiguration](pkg/apis/v1alpha1/ocinodeclass.go)                                                            |
 
 - if your cluster use flannel as the cni, you can refer:
-[example](docs/sample/oke_ocinodeclasses_sample.yaml)
+  [example](docs/sample/oke_ocinodeclasses_sample.yaml)
 ```yaml
 apiVersion: karpenter.k8s.oracle/v1alpha1
 kind: OciNodeClass
@@ -192,7 +192,7 @@ spec:
       nodefs.inodesFree: 5%
     systemReserved:
       memory: 100Mi
-  subnetSelector: 
+  subnetSelector:
     - name: {{ .subnetName }}
   vcnId: {{ .vcnId }}
 ```
@@ -221,7 +221,7 @@ spec:
       nodefs.inodesFree: 5%
     systemReserved:
       memory: 100Mi
-  subnetSelector: 
+  subnetSelector:
     - name: {{ .subnetName }}
   vcnId: {{ .vcnId }}
 ```

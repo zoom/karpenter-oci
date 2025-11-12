@@ -16,7 +16,7 @@ package main
 
 import (
 	_ "github.com/zoom/karpenter-oci/pkg/operator/oci/sdk/retrypolicy/initglobal"
-	
+
 	"github.com/samber/lo"
 	"github.com/zoom/karpenter-oci/pkg/controllers"
 	"sigs.k8s.io/karpenter/pkg/controllers/state"
@@ -38,6 +38,7 @@ func main() {
 		op.GetClient(),
 		op.ImageProvider,
 	)
+	overlayUndecoratedCloudProvider := metrics.Decorate(ociCloudProvider)
 	lo.Must0(op.AddHealthzCheck("cloud-provider", ociCloudProvider.LivenessProbe))
 	cloudProvider := metrics.Decorate(ociCloudProvider)
 	clusterState := state.NewCluster(op.Clock, op.GetClient(), cloudProvider)
@@ -48,7 +49,9 @@ func main() {
 		op.GetClient(),
 		op.EventRecorder,
 		cloudProvider,
+		overlayUndecoratedCloudProvider,
 		clusterState,
+		op.InstanceTypeStore,
 	)
 	op.
 		WithControllers(ctx, coreControllers...).

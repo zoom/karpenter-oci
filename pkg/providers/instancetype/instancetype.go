@@ -44,7 +44,7 @@ const (
 	InstanceTypesCacheKey = "types"
 )
 
-var supportInstanceTypes = []string{v1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible}
+var supportInstanceTypes = []string{v1.CapacityTypeOnDemand, v1.CapacityTypeSpot}
 
 type Provider struct {
 	region               string
@@ -82,7 +82,7 @@ func (p *Provider) CreateOfferings(ctx context.Context, shape *internalmodel.Wra
 			isUnavailable := p.unavailableOfferings.IsUnavailable(*shape.Shape.Shape, zone, capacityType)
 
 			price := float64(p.priceProvider.Price(shape))
-			if capacityType == v1alpha1.CapacityTypePreemptible {
+			if capacityType == v1.CapacityTypeSpot {
 				// Filters shapes that preemptible is supported
 				if supportPreemptible(ctx, *shape.Shape.Shape) {
 					// Preemptible is 50% OFF of on-demand price
