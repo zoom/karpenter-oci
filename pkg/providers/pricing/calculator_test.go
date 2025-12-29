@@ -59,6 +59,10 @@ func TestPrice(t *testing.T) {
 	var a2_CpuNum float32 = 1
 	var a2_Mem float32 = 6
 
+	a4 := "VM.Standard.A4.Flex"
+	var a4_CpuNum float32 = 1
+	var a4_Mem float32 = 6
+
 	standard3 := "VM.Standard3.Flex"
 	var standard3_CpuNum float32 = 1
 	var standard3_Mem float32 = 8
@@ -144,6 +148,14 @@ func TestPrice(t *testing.T) {
 		},
 		{
 			Shape: &core.Shape{
+				Shape:       &a4,
+				Ocpus:       &a4_CpuNum,
+				MemoryInGBs: &a4_Mem,
+			},
+			Price: 0.030,
+		},
+		{
+			Shape: &core.Shape{
 				Shape:       &standard3,
 				Ocpus:       &standard3_CpuNum,
 				MemoryInGBs: &standard3_Mem,
@@ -161,10 +173,10 @@ func TestPrice(t *testing.T) {
 		},
 	}
 
-	endpint := "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/"
-	//endpint := "http://localhost:8888/price.json"
+	endpoint := "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/"
+	//endpoint := "http://localhost:8888/price.json"
 
-	syncer := NewDefaultProvider(context.Background(), endpint)
+	syncer := NewDefaultProvider(context.Background(), endpoint)
 
 	time.Sleep(18 * time.Second)
 

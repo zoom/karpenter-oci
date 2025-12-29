@@ -42,7 +42,7 @@ const (
 )
 
 // https://docs.oracle.com/en-us/iaas/Content/Compute/References/arm.htm
-var ArmShapes = []string{"BM.Standard.A1.160", "VM.Standard.A1.Flex", "VM.Standard.A2.Flex"}
+var ArmShapes = []string{"BM.Standard.A1.160", "VM.Standard.A1.Flex", "VM.Standard.A2.Flex", "BM.Standard.A4.48", "VM.Standard.A4.Flex"}
 
 // TaxBrackets implements a simple bracketed tax structure.
 type TaxBrackets []struct {

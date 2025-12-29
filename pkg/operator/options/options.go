@@ -32,7 +32,7 @@ func init() {
 }
 
 const (
-	defaultPreemptibleShapes        = "VM.Standard1,VM.Standard.B1,VM.Standard2,VM.Standard3.Flex,VM.Standard.E2,VM.Standard.E3.Flex,VM.Standard.E4.Flex,VM.Standard.E5.Flex,VM.Standard.E6.Flex,VM.Standard.A1.Flex,VM.DenseIO1,VM.DenseIO2,VM.GPU2,VM.GPU3,VM.Optimized3.Flex"
+	defaultPreemptibleShapes        = "VM.Standard1,VM.Standard.B1,VM.Standard2,VM.Standard3.Flex,VM.Standard.E2,VM.Standard.E3.Flex,VM.Standard.E4.Flex,VM.Standard.E5.Flex,VM.Standard.E6.Flex,VM.Standard.A1.Flex,VM.Standard.A4.Flex,VM.DenseIO1,VM.DenseIO2,VM.GPU2,VM.GPU3,VM.Optimized3.Flex"
 	defaultPreemptibleExcludeShapes = "VM.Standard.E2.1.Micro"
 )
 
