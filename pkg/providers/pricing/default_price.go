@@ -1064,6 +1064,40 @@ var defaultPrice = `
       ]
     },
     {
+        "partNumber": "B112145",
+        "displayName": "OCI - Compute - Standard - A4 - OCPU",
+        "metricName": "OCPU Per Hour",
+        "serviceCategory": "Compute - Virtual Machine",
+        "currencyCodeLocalizations": [
+          {
+            "currencyCode": "USD",
+            "prices": [
+              {
+                  "model": "PAY_AS_YOU_GO",
+                  "value": 0.0138
+              }
+            ]
+          }
+        ]
+    },
+    {
+        "partNumber": "B112146",
+        "displayName": "OCI - Compute - Standard - A4 - Memory",
+        "metricName": "Gigabyte Per Hour",
+        "serviceCategory": "Compute - Virtual Machine",
+        "currencyCodeLocalizations": [
+          {
+            "currencyCode": "USD",
+            "prices": [
+              {
+                  "model": "PAY_AS_YOU_GO",
+                  "value": 0.0027
+              }
+            ]
+          }
+        ]
+    },
+    {
       "partNumber": "B109545",
       "displayName": "Oracle Blockchain Platform Enterprise Edition for  OCI",
       "metricName": "OCPU Per Hour",
