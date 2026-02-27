@@ -3,550 +3,576 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.2
+    controller-gen.kubebuilder.io/version: v0.20.0
   name: ocinodeclasses.karpenter.k8s.oracle
 spec:
   group: karpenter.k8s.oracle
   names:
     categories:
-      - karpenter
+    - karpenter
     kind: OciNodeClass
     listKind: OciNodeClassList
     plural: ocinodeclasses
     shortNames:
-      - ocinc
-      - ocincs
+    - ocinc
+    - ocincs
     singular: ocinodeclass
   scope: Cluster
   versions:
-    - name: v1alpha1
-      schema:
-        openAPIV3Schema:
-          description: OciNodeClass is the Schema for the OciNodeClass API
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              properties:
-                agentList:
-                  items:
-                    type: string
-                  type: array
-                blockDevices:
-                  items:
-                    properties:
-                      sizeInGBs:
-                        description: |-
-                          SizeInGBs specifies the size of the block volume in GB.
-                          Must be between 50 and 32768.
-                        format: int64
-                        maximum: 32768
-                        minimum: 50
-                        type: integer
-                      vpusPerGB:
-                        description: |-
-                          VpusPerGB specifies the number of volume performance units per GB.
-                          Allowed values: 0 (low cost), 10 (balanced), 20 (high performance).
-                        enum:
-                          - 0
-                          - 10
-                          - 20
-                        format: int64
-                        type: integer
-                    required:
-                      - sizeInGBs
-                      - vpusPerGB
-                    type: object
-                  type: array
-                bootConfig:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: OciNodeClass is the Schema for the OciNodeClass API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              agentList:
+                items:
+                  type: string
+                type: array
+              blockDevices:
+                items:
                   properties:
-                    bootVolumeSizeInGBs:
+                    sizeInGBs:
+                      description: |-
+                        SizeInGBs specifies the size of the block volume in GB.
+                        Must be between 50 and 32768.
                       format: int64
+                      maximum: 32768
+                      minimum: 50
                       type: integer
-                    bootVolumeVpusPerGB:
+                    vpusPerGB:
+                      description: |-
+                        VpusPerGB specifies the number of volume performance units per GB.
+                        Allowed values: 0 (low cost), 10 (balanced), 20 (high performance).
+                      enum:
+                      - 0
+                      - 10
+                      - 20
                       format: int64
                       type: integer
                   required:
-                    - bootVolumeSizeInGBs
-                    - bootVolumeVpusPerGB
+                  - sizeInGBs
+                  - vpusPerGB
                   type: object
-                definedTags:
+                type: array
+              bootConfig:
+                properties:
+                  bootVolumeSizeInGBs:
+                    format: int64
+                    type: integer
+                  bootVolumeVpusPerGB:
+                    format: int64
+                    type: integer
+                required:
+                - bootVolumeSizeInGBs
+                - bootVolumeVpusPerGB
+                type: object
+              definedTags:
+                additionalProperties:
                   additionalProperties:
-                    additionalProperties:
-                      type: string
-                    maxProperties: 64
-                    type: object
-                    x-kubernetes-validations:
-                      - message: tag keys cannot contain dots
-                        rule: self.all(k, !k.contains('.'))
-                      - message: tag keys cannot contain spaces
-                        rule: self.all(k, !k.contains(' '))
-                      - message: tag keys cannot exceed 100 characters
-                        rule: self.all(k, size(k) <= 100)
-                      - message: tag values cannot exceed 256 characters
-                        rule: self.all(k, size(self[k]) <= 256)
-                  description: |-
-                    DefinedTags to be applied on instance resources
-                    First level map: namespace -> tag pairs, max 64 total flattened keys
+                    type: string
                   maxProperties: 64
                   type: object
                   x-kubernetes-validations:
-                    - message: empty namespace keys aren't supported
-                      rule: self.all(k, k != '')
-                    - message: namespace keys cannot contain dots
-                      rule: self.all(k, !k.contains('.'))
-                    - message: namespace keys cannot contain spaces
-                      rule: self.all(k, !k.contains(' '))
-                    - message: namespace keys cannot exceed 100 characters
-                      rule: self.all(k, size(k) <= 100)
-                freeFormTags:
-                  additionalProperties:
-                    type: string
-                  description: FreeFormTags contains user-defined tags for OCI resources
-                  maxProperties: 10
-                  type: object
-                  x-kubernetes-validations:
-                    - message: freeform tag keys cannot contain spaces
-                      rule: self.all(k, !k.contains(' '))
-                    - message: freeform tag keys cannot contain dots
-                      rule: self.all(k, !k.contains('.'))
-                    - message: freeform tag keys cannot exceed 100 characters
-                      rule: self.all(k, size(k) <= 100)
-                imageFamily:
+                  - message: tag keys cannot contain dots
+                    rule: self.all(k, !k.contains('.'))
+                  - message: tag keys cannot contain spaces
+                    rule: self.all(k, !k.contains(' '))
+                  - message: tag keys cannot exceed 100 characters
+                    rule: self.all(k, size(k) <= 100)
+                  - message: tag values cannot exceed 256 characters
+                    rule: self.all(k, size(self[k]) <= 256)
+                description: |-
+                  DefinedTags to be applied on instance resources
+                  First level map: namespace -> tag pairs, max 64 total flattened keys
+                maxProperties: 64
+                type: object
+                x-kubernetes-validations:
+                - message: empty namespace keys aren't supported
+                  rule: self.all(k, k != '')
+                - message: namespace keys cannot contain dots
+                  rule: self.all(k, !k.contains('.'))
+                - message: namespace keys cannot contain spaces
+                  rule: self.all(k, !k.contains(' '))
+                - message: namespace keys cannot exceed 100 characters
+                  rule: self.all(k, size(k) <= 100)
+              freeFormTags:
+                additionalProperties:
                   type: string
-                imageSelector:
-                  description: imageSelector is a list of or image selector terms. The terms are ORed.
-                  items:
-                    properties:
-                      compartmentId:
-                        type: string
-                      id:
-                        description: ID is the ami id in instance
-                        pattern: ocid1.image.[0-9a-z]+
-                        type: string
-                      name:
-                        description: |-
-                          Name is the image name in instance.
-                          This value is the name field, which is different from the name tag.
-                        type: string
-                    type: object
-                  maxItems: 30
-                  minItems: 1
-                  type: array
-                  x-kubernetes-validations:
-                    - message: expected at least one, got none, ['id', 'name']
-                      rule: self.all(x, has(x.id) || has(x.name))
-                    - message: '''id'' is mutually exclusive, cannot be set with a combination of other fields in imageSelector'
-                      rule: '!self.exists(x, has(x.id) && has(x.name))'
-                kubelet:
-                  description: |-
-                    Kubelet defines args to be used when configuring kubelet on provisioned nodes.
-                    They are a subset of the upstream types, recognizing not all options may be supported.
-                    Wherever possible, the types and names should reflect the upstream kubelet types.
+                description: FreeFormTags contains user-defined tags for OCI resources
+                maxProperties: 10
+                type: object
+                x-kubernetes-validations:
+                - message: freeform tag keys cannot contain spaces
+                  rule: self.all(k, !k.contains(' '))
+                - message: freeform tag keys cannot contain dots
+                  rule: self.all(k, !k.contains('.'))
+                - message: freeform tag keys cannot exceed 100 characters
+                  rule: self.all(k, size(k) <= 100)
+              imageFamily:
+                type: string
+              imageSelector:
+                description: imageSelector is a list of or image selector terms. The
+                  terms are ORed.
+                items:
                   properties:
-                    clusterDNS:
+                    compartmentId:
+                      type: string
+                    id:
+                      description: ID is the ami id in instance
+                      pattern: ocid1.image.[0-9a-z]+
+                      type: string
+                    name:
                       description: |-
-                        clusterDNS is a list of IP addresses for the cluster DNS server.
-                        Note that not all providers may use all addresses.
+                        Name is the image name in instance.
+                        This value is the name field, which is different from the name tag.
+                      type: string
+                  type: object
+                maxItems: 30
+                minItems: 1
+                type: array
+                x-kubernetes-validations:
+                - message: expected at least one, got none, ['id', 'name']
+                  rule: self.all(x, has(x.id) || has(x.name))
+                - message: '''id'' is mutually exclusive, cannot be set with a combination
+                    of other fields in imageSelector'
+                  rule: '!self.exists(x, has(x.id) && has(x.name))'
+              kubelet:
+                description: |-
+                  Kubelet defines args to be used when configuring kubelet on provisioned nodes.
+                  They are a subset of the upstream types, recognizing not all options may be supported.
+                  Wherever possible, the types and names should reflect the upstream kubelet types.
+                properties:
+                  clusterDNS:
+                    description: |-
+                      clusterDNS is a list of IP addresses for the cluster DNS server.
+                      Note that not all providers may use all addresses.
+                    items:
+                      type: string
+                    type: array
+                  cpuCFSQuota:
+                    description: CPUCFSQuota enables CPU CFS quota enforcement for
+                      containers that specify CPU limits.
+                    type: boolean
+                  evictionHard:
+                    additionalProperties:
+                      type: string
+                    description: EvictionHard is the map of signal names to quantities
+                      that define hard eviction thresholds
+                    type: object
+                    x-kubernetes-validations:
+                    - message: valid keys for evictionHard are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
+                      rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
+                  evictionMaxPodGracePeriod:
+                    description: |-
+                      EvictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when terminating pods in
+                      response to soft eviction thresholds being met.
+                    format: int32
+                    type: integer
+                  evictionSoft:
+                    additionalProperties:
+                      type: string
+                    description: EvictionSoft is the map of signal names to quantities
+                      that define soft eviction thresholds
+                    type: object
+                    x-kubernetes-validations:
+                    - message: valid keys for evictionSoft are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
+                      rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
+                  evictionSoftGracePeriod:
+                    additionalProperties:
+                      type: string
+                    description: EvictionSoftGracePeriod is the map of signal names
+                      to quantities that define grace periods for each eviction signal
+                    type: object
+                    x-kubernetes-validations:
+                    - message: valid keys for evictionSoftGracePeriod are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
+                      rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
+                  extraArgs:
+                    description: |-
+                      ExtraArgs is a list of additional arguments to pass to the kubelet.
+                      These are appended to the generated kubelet arguments.
+                      Example: ["--image-credential-provider-bin-dir=/usr/local/bin/", "--image-credential-provider-config=/etc/kubernetes/credential-provider-config.yaml"]
+                    items:
+                      type: string
+                    type: array
+                  imageGCHighThresholdPercent:
+                    description: |-
+                      ImageGCHighThresholdPercent is the percent of disk usage after which image
+                      garbage collection is always run. The percent is calculated by dividing this
+                      field value by 100, so this field must be between 0 and 100, inclusive.
+                      When specified, the value must be greater than ImageGCLowThresholdPercent.
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  imageGCLowThresholdPercent:
+                    description: |-
+                      ImageGCLowThresholdPercent is the percent of disk usage before which image
+                      garbage collection is never run. Lowest disk usage to garbage collect to.
+                      The percent is calculated by dividing this field value by 100,
+                      so the field value must be between 0 and 100, inclusive.
+                      When specified, the value must be less than imageGCHighThresholdPercent
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                  kubeReserved:
+                    additionalProperties:
+                      type: string
+                    description: KubeReserved contains resources reserved for Kubernetes
+                      system components.
+                    type: object
+                    x-kubernetes-validations:
+                    - message: valid keys for kubeReserved are ['cpu','memory','ephemeral-storage','pid']
+                      rule: self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage'
+                        || x=='pid')
+                    - message: kubeReserved value cannot be a negative resource quantity
+                      rule: self.all(x, !self[x].startsWith('-'))
+                  maxPods:
+                    description: |-
+                      MaxPods is an override for the maximum number of pods that can run on
+                      a worker node instance.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  podsPerCore:
+                    description: |-
+                      PodsPerCore is an override for the number of pods that can run on a worker node
+                      instance based on the number of cpu cores. This value cannot exceed MaxPods, so, if
+                      MaxPods is a lower value, that value will be used.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  systemReserved:
+                    additionalProperties:
+                      type: string
+                    description: SystemReserved contains resources reserved for OS
+                      system daemons and kernel memory.
+                    type: object
+                    x-kubernetes-validations:
+                    - message: valid keys for systemReserved are ['cpu','memory','ephemeral-storage','pid']
+                      rule: self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage'
+                        || x=='pid')
+                    - message: systemReserved value cannot be a negative resource
+                        quantity
+                      rule: self.all(x, !self[x].startsWith('-'))
+                type: object
+                x-kubernetes-validations:
+                - message: imageGCHighThresholdPercent must be greater than imageGCLowThresholdPercent
+                  rule: 'has(self.imageGCHighThresholdPercent) && has(self.imageGCLowThresholdPercent)
+                    ?  self.imageGCHighThresholdPercent > self.imageGCLowThresholdPercent  :
+                    true'
+                - message: evictionSoft OwnerKey does not have a matching evictionSoftGracePeriod
+                  rule: has(self.evictionSoft) ? self.evictionSoft.all(e, (e in self.evictionSoftGracePeriod)):true
+                - message: evictionSoftGracePeriod OwnerKey does not have a matching
+                    evictionSoft
+                  rule: has(self.evictionSoftGracePeriod) ? self.evictionSoftGracePeriod.all(e,
+                    (e in self.evictionSoft)):true
+              launchOptions:
+                properties:
+                  bootVolumeType:
+                    description: |-
+                      Emulation type for the boot volume.
+                      * `ISCSI` - ISCSI attached block storage device.
+                      * `SCSI` - Emulated SCSI disk.
+                      * `IDE` - Emulated IDE disk.
+                      * `VFIO` - Direct attached Virtual Function storage. This is the default option for local data
+                      volumes on platform images.
+                      * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
+                      storage volumes on platform images.
+                    enum:
+                    - ISCSI
+                    - SCSI
+                    - IDE
+                    - VFIO
+                    - PARAVIRTUALIZED
+                    type: string
+                  firmware:
+                    description: |-
+                      Firmware used to boot VM. Select the option that matches your operating system.
+                      * `BIOS` - Boot VM using BIOS style firmware. This is compatible with both 32 bit and 64 bit operating
+                      systems that boot using MBR style bootloaders.
+                      * `UEFI_64` - Boot VM using UEFI style firmware compatible with 64 bit operating systems. This is the
+                      default for platform images.
+                    enum:
+                    - BIOS
+                    - UEFI_64
+                    type: string
+                  isConsistentVolumeNamingEnabled:
+                    description: Whether to enable consistent volume naming feature.
+                      Defaults to false.
+                    type: boolean
+                  networkType:
+                    description: |-
+                      Emulation type for the physical network interface card (NIC).
+                      * `E1000` - Emulated Gigabit ethernet controller. Compatible with Linux e1000 network driver.
+                      * `VFIO` - Direct attached Virtual Function network controller. This is the networking type
+                      when you launch an instance using hardware-assisted (SR-IOV) networking.
+                      * `PARAVIRTUALIZED` - VM instances launch with paravirtualized devices using VirtIO drivers.
+                    enum:
+                    - E1000
+                    - VFIO
+                    - PARAVIRTUALIZED
+                    type: string
+                  remoteDataVolumeType:
+                    description: |-
+                      Emulation type for volume.
+                      * `ISCSI` - ISCSI attached block storage device.
+                      * `SCSI` - Emulated SCSI disk.
+                      * `IDE` - Emulated IDE disk.
+                      * `VFIO` - Direct attached Virtual Function storage. This is the default option for local data
+                      volumes on platform images.
+                      * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
+                      storage volumes on platform images.
+                    enum:
+                    - ISCSI
+                    - SCSI
+                    - IDE
+                    - VFIO
+                    - PARAVIRTUALIZED
+                    type: string
+                type: object
+              metaData:
+                additionalProperties:
+                  type: string
+                type: object
+              preInstallScript:
+                type: string
+              securityGroupSelector:
+                description: securityGroupSelector is a list of or security group
+                  selector terms. The terms are ORed.
+                items:
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                  type: object
+                maxItems: 30
+                type: array
+                x-kubernetes-validations:
+                - message: expected at least one, got none, ['id', 'name']
+                  rule: self.all(x, has(x.id) || has(x.name))
+                - message: '''id'' is mutually exclusive, cannot be set with a combination
+                    of other fields in securityGroupSelector'
+                  rule: '!self.all(x, has(x.id) && has(x.name))'
+                - message: '''name'' is mutually exclusive, cannot be set with a combination
+                    of other fields in securityGroupSelector'
+                  rule: '!self.all(x, has(x.name) && has(x.id))'
+              subnetSelector:
+                description: subnetSelector is a list of or subnet selector terms.
+                  The terms are ORed.
+                items:
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                  type: object
+                maxItems: 30
+                type: array
+                x-kubernetes-validations:
+                - message: subnetSelector cannot be empty
+                  rule: self.size() != 0
+                - message: expected at least one, got none, ['name', 'id']
+                  rule: self.all(x, has(x.name) || has(x.id))
+                - message: '''id'' is mutually exclusive, cannot be set with a combination
+                    of other fields in subnetSelector'
+                  rule: '!self.all(x, has(x.id) && has(x.name))'
+              tags:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Tags to be applied on instance resources
+                  deprecated, use DefinedTags instead
+                type: object
+                x-kubernetes-validations:
+                - message: empty tag keys aren't supported
+                  rule: self.all(k, k != '')
+                - message: tag contains a restricted tag matching kubernetes.io/cluster/
+                  rule: self.all(k, !k.startsWith('kubernetes.io/cluster') )
+                - message: tag contains a restricted tag matching karpenter.sh/nodepool
+                  rule: self.all(k, k != 'karpenter.sh/nodepool')
+                - message: tag contains a restricted tag matching karpenter.sh/nodeclaim
+                  rule: self.all(k, k !='karpenter.sh/nodeclaim')
+                - message: tag contains a restricted tag matching karpenter.sh/managed-by
+                  rule: self.all(k, k !='karpenter.sh/managed-by')
+                - message: tag contains a restricted tag matching karpenter.k8s.oracle/ocinodeclass
+                  rule: self.all(k, k !='karpenter.k8s.oracle/ocinodeclass')
+              userData:
+                type: string
+              vcnId:
+                type: string
+            required:
+            - bootConfig
+            - imageFamily
+            - imageSelector
+            - securityGroupSelector
+            - subnetSelector
+            - vcnId
+            type: object
+          status:
+            properties:
+              conditions:
+                description: Conditions contains signals for health and readiness
+                items:
+                  description: Condition aliases the upstream type and adds additional
+                    helper methods
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              images:
+                description: |-
+                  Images contains the current images detail that are available to the
+                  cluster under the image spec.
+                items:
+                  properties:
+                    compartmentId:
+                      type: string
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    requirements:
                       items:
-                        type: string
+                        description: |-
+                          A node selector requirement is a selector that contains values, a key, and an operator
+                          that relates the key and values.
+                        properties:
+                          key:
+                            description: The label key that the selector applies to.
+                            type: string
+                          operator:
+                            description: |-
+                              Represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                            type: string
+                          values:
+                            description: |-
+                              An array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. If the operator is Gt or Lt, the values
+                              array must have a single element, which will be interpreted as an integer.
+                              This array is replaced during a strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
                       type: array
-                    cpuCFSQuota:
-                      description: CPUCFSQuota enables CPU CFS quota enforcement for containers that specify CPU limits.
-                      type: boolean
-                    evictionHard:
-                      additionalProperties:
-                        type: string
-                        pattern: ^((\d{1,2}(\.\d{1,2})?|100(\.0{1,2})?)%||(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?)$
-                      description: EvictionHard is the map of signal names to quantities that define hard eviction thresholds
-                      type: object
-                      x-kubernetes-validations:
-                        - message: valid keys for evictionHard are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
-                          rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
-                    evictionMaxPodGracePeriod:
-                      description: |-
-                        EvictionMaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when terminating pods in
-                        response to soft eviction thresholds being met.
-                      format: int32
-                      type: integer
-                    evictionSoft:
-                      additionalProperties:
-                        type: string
-                        pattern: ^((\d{1,2}(\.\d{1,2})?|100(\.0{1,2})?)%||(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?)$
-                      description: EvictionSoft is the map of signal names to quantities that define soft eviction thresholds
-                      type: object
-                      x-kubernetes-validations:
-                        - message: valid keys for evictionSoft are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
-                          rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
-                    evictionSoftGracePeriod:
-                      additionalProperties:
-                        type: string
-                      description: EvictionSoftGracePeriod is the map of signal names to quantities that define grace periods for each eviction signal
-                      type: object
-                      x-kubernetes-validations:
-                        - message: valid keys for evictionSoftGracePeriod are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']
-                          rule: self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])
-                    imageGCHighThresholdPercent:
-                      description: |-
-                        ImageGCHighThresholdPercent is the percent of disk usage after which image
-                        garbage collection is always run. The percent is calculated by dividing this
-                        field value by 100, so this field must be between 0 and 100, inclusive.
-                        When specified, the value must be greater than ImageGCLowThresholdPercent.
-                      format: int32
-                      maximum: 100
-                      minimum: 0
-                      type: integer
-                    imageGCLowThresholdPercent:
-                      description: |-
-                        ImageGCLowThresholdPercent is the percent of disk usage before which image
-                        garbage collection is never run. Lowest disk usage to garbage collect to.
-                        The percent is calculated by dividing this field value by 100,
-                        so the field value must be between 0 and 100, inclusive.
-                        When specified, the value must be less than imageGCHighThresholdPercent
-                      format: int32
-                      maximum: 100
-                      minimum: 0
-                      type: integer
-                    kubeReserved:
-                      additionalProperties:
-                        type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      description: KubeReserved contains resources reserved for Kubernetes system components.
-                      type: object
-                      x-kubernetes-validations:
-                        - message: valid keys for kubeReserved are ['cpu','memory','ephemeral-storage','pid']
-                          rule: self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage' || x=='pid')
-                        - message: kubeReserved value cannot be a negative resource quantity
-                          rule: self.all(x, !self[x].startsWith('-'))
-                    maxPods:
-                      description: |-
-                        MaxPods is an override for the maximum number of pods that can run on
-                        a worker node instance.
-                      format: int32
-                      minimum: 0
-                      type: integer
-                    podsPerCore:
-                      description: |-
-                        PodsPerCore is an override for the number of pods that can run on a worker node
-                        instance based on the number of cpu cores. This value cannot exceed MaxPods, so, if
-                        MaxPods is a lower value, that value will be used.
-                      format: int32
-                      minimum: 0
-                      type: integer
-                    systemReserved:
-                      additionalProperties:
-                        type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      description: SystemReserved contains resources reserved for OS system daemons and kernel memory.
-                      type: object
-                      x-kubernetes-validations:
-                        - message: valid keys for systemReserved are ['cpu','memory','ephemeral-storage','pid']
-                          rule: self.all(x, x=='cpu' || x=='memory' || x=='ephemeral-storage' || x=='pid')
-                        - message: systemReserved value cannot be a negative resource quantity
-                          rule: self.all(x, !self[x].startsWith('-'))
                   type: object
-                  x-kubernetes-validations:
-                    - message: imageGCHighThresholdPercent must be greater than imageGCLowThresholdPercent
-                      rule: 'has(self.imageGCHighThresholdPercent) && has(self.imageGCLowThresholdPercent) ?  self.imageGCHighThresholdPercent > self.imageGCLowThresholdPercent  : true'
-                    - message: evictionSoft OwnerKey does not have a matching evictionSoftGracePeriod
-                      rule: has(self.evictionSoft) ? self.evictionSoft.all(e, (e in self.evictionSoftGracePeriod)):true
-                    - message: evictionSoftGracePeriod OwnerKey does not have a matching evictionSoft
-                      rule: has(self.evictionSoftGracePeriod) ? self.evictionSoftGracePeriod.all(e, (e in self.evictionSoft)):true
-                launchOptions:
+                type: array
+              securityGroups:
+                description: |-
+                  SecurityGroups contains the current security detail that are available to the
+                  cluster under the security group spec.
+                items:
                   properties:
-                    bootVolumeType:
-                      description: |-
-                        Emulation type for the boot volume.
-                        * `ISCSI` - ISCSI attached block storage device.
-                        * `SCSI` - Emulated SCSI disk.
-                        * `IDE` - Emulated IDE disk.
-                        * `VFIO` - Direct attached Virtual Function storage. This is the default option for local data
-                        volumes on platform images.
-                        * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
-                        storage volumes on platform images.
-                      enum:
-                        - ISCSI
-                        - SCSI
-                        - IDE
-                        - VFIO
-                        - PARAVIRTUALIZED
+                    id:
                       type: string
-                    firmware:
-                      description: |-
-                        Firmware used to boot VM. Select the option that matches your operating system.
-                        * `BIOS` - Boot VM using BIOS style firmware. This is compatible with both 32 bit and 64 bit operating
-                        systems that boot using MBR style bootloaders.
-                        * `UEFI_64` - Boot VM using UEFI style firmware compatible with 64 bit operating systems. This is the
-                        default for platform images.
-                      enum:
-                        - BIOS
-                        - UEFI_64
-                      type: string
-                    isConsistentVolumeNamingEnabled:
-                      description: Whether to enable consistent volume naming feature. Defaults to false.
-                      type: boolean
-                    networkType:
-                      description: |-
-                        Emulation type for the physical network interface card (NIC).
-                        * `E1000` - Emulated Gigabit ethernet controller. Compatible with Linux e1000 network driver.
-                        * `VFIO` - Direct attached Virtual Function network controller. This is the networking type
-                        when you launch an instance using hardware-assisted (SR-IOV) networking.
-                        * `PARAVIRTUALIZED` - VM instances launch with paravirtualized devices using VirtIO drivers.
-                      enum:
-                        - E1000
-                        - VFIO
-                        - PARAVIRTUALIZED
-                      type: string
-                    remoteDataVolumeType:
-                      description: |-
-                        Emulation type for volume.
-                        * `ISCSI` - ISCSI attached block storage device.
-                        * `SCSI` - Emulated SCSI disk.
-                        * `IDE` - Emulated IDE disk.
-                        * `VFIO` - Direct attached Virtual Function storage. This is the default option for local data
-                        volumes on platform images.
-                        * `PARAVIRTUALIZED` - Paravirtualized disk. This is the default for boot volumes and remote block
-                        storage volumes on platform images.
-                      enum:
-                        - ISCSI
-                        - SCSI
-                        - IDE
-                        - VFIO
-                        - PARAVIRTUALIZED
+                    name:
                       type: string
                   type: object
-                metaData:
-                  additionalProperties:
-                    type: string
+                type: array
+              subnets:
+                description: |-
+                  Subnets contains the current Subnet values that are available to the
+                  cluster under the subnet selectors.
+                items:
+                  properties:
+                    cidrUtilization:
+                      items:
+                        properties:
+                          addressType:
+                            description: Address type of the CIDR within a subnet.
+                            type: string
+                          cidr:
+                            description: The CIDR range of a subnet.
+                            type: string
+                          utilization:
+                            description: The CIDR utilisation of a subnet.
+                            type: string
+                        type: object
+                      type: array
+                    id:
+                      type: string
+                    name:
+                      type: string
                   type: object
-                preInstallScript:
-                  type: string
-                securityGroupSelector:
-                  description: securityGroupSelector is a list of or security group selector terms. The terms are ORed.
-                  items:
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                    type: object
-                  maxItems: 30
-                  type: array
-                  x-kubernetes-validations:
-                    - message: expected at least one, got none, ['id', 'name']
-                      rule: self.all(x, has(x.id) || has(x.name))
-                    - message: '''id'' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelector'
-                      rule: '!self.all(x, has(x.id) && has(x.name))'
-                    - message: '''name'' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelector'
-                      rule: '!self.all(x, has(x.name) && has(x.id))'
-                subnetSelector:
-                  description: subnetSelector is a list of or subnet selector terms. The terms are ORed.
-                  items:
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                    type: object
-                  maxItems: 30
-                  type: array
-                  x-kubernetes-validations:
-                    - message: subnetSelector cannot be empty
-                      rule: self.size() != 0
-                    - message: expected at least one, got none, ['name', 'id']
-                      rule: self.all(x, has(x.name) || has(x.id))
-                    - message: '''id'' is mutually exclusive, cannot be set with a combination of other fields in subnetSelector'
-                      rule: '!self.all(x, has(x.id) && has(x.name))'
-                tags:
-                  additionalProperties:
-                    type: string
-                  description: |-
-                    Tags to be applied on instance resources
-                    deprecated, use DefinedTags instead
-                  type: object
-                  x-kubernetes-validations:
-                    - message: empty tag keys aren't supported
-                      rule: self.all(k, k != '')
-                    - message: tag contains a restricted tag matching kubernetes.io/cluster/
-                      rule: self.all(k, !k.startsWith('kubernetes.io/cluster') )
-                    - message: tag contains a restricted tag matching karpenter.sh/nodepool
-                      rule: self.all(k, k != 'karpenter.sh/nodepool')
-                    - message: tag contains a restricted tag matching karpenter.sh/nodeclaim
-                      rule: self.all(k, k !='karpenter.sh/nodeclaim')
-                    - message: tag contains a restricted tag matching karpenter.sh/managed-by
-                      rule: self.all(k, k !='karpenter.sh/managed-by')
-                    - message: tag contains a restricted tag matching karpenter.k8s.oracle/ocinodeclass
-                      rule: self.all(k, k !='karpenter.k8s.oracle/ocinodeclass')
-                userData:
-                  type: string
-                vcnId:
-                  type: string
-              required:
-                - bootConfig
-                - imageFamily
-                - imageSelector
-                - securityGroupSelector
-                - subnetSelector
-                - vcnId
-              type: object
-            status:
-              properties:
-                conditions:
-                  description: Conditions contains signals for health and readiness
-                  items:
-                    description: Condition aliases the upstream type and adds additional helper methods
-                    properties:
-                      lastTransitionTime:
-                        description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                        format: date-time
-                        type: string
-                      message:
-                        description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
-                        maxLength: 32768
-                        type: string
-                      observedGeneration:
-                        description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
-                        format: int64
-                        minimum: 0
-                        type: integer
-                      reason:
-                        description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
-                        maxLength: 1024
-                        minLength: 1
-                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                        type: string
-                      status:
-                        description: status of the condition, one of True, False, Unknown.
-                        enum:
-                          - "True"
-                          - "False"
-                          - Unknown
-                        type: string
-                      type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        maxLength: 316
-                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                        type: string
-                    required:
-                      - lastTransitionTime
-                      - message
-                      - reason
-                      - status
-                      - type
-                    type: object
-                  type: array
-                images:
-                  description: |-
-                    Images contains the current images detail that are available to the
-                    cluster under the image spec.
-                  items:
-                    properties:
-                      compartmentId:
-                        type: string
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      requirements:
-                        items:
-                          description: |-
-                            A node selector requirement is a selector that contains values, a key, and an operator
-                            that relates the key and values.
-                          properties:
-                            key:
-                              description: The label key that the selector applies to.
-                              type: string
-                            operator:
-                              description: |-
-                                Represents a key's relationship to a set of values.
-                                Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-                              type: string
-                            values:
-                              description: |-
-                                An array of string values. If the operator is In or NotIn,
-                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                the values array must be empty. If the operator is Gt or Lt, the values
-                                array must have a single element, which will be interpreted as an integer.
-                                This array is replaced during a strategic merge patch.
-                              items:
-                                type: string
-                              type: array
-                              x-kubernetes-list-type: atomic
-                          required:
-                            - key
-                            - operator
-                          type: object
-                        type: array
-                    type: object
-                  type: array
-                securityGroups:
-                  description: |-
-                    SecurityGroups contains the current security detail that are available to the
-                    cluster under the security group spec.
-                  items:
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                    type: object
-                  type: array
-                subnets:
-                  description: |-
-                    Subnets contains the current Subnet values that are available to the
-                    cluster under the subnet selectors.
-                  items:
-                    properties:
-                      cidrUtilization:
-                        items:
-                          properties:
-                            addressType:
-                              description: Address type of the CIDR within a subnet.
-                              type: string
-                            cidr:
-                              description: The CIDR range of a subnet.
-                              type: string
-                            utilization:
-                              description: The CIDR utilisation of a subnet.
-                              type: string
-                          type: object
-                        type: array
-                      id:
-                        type: string
-                      name:
-                        type: string
-                    type: object
-                  type: array
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

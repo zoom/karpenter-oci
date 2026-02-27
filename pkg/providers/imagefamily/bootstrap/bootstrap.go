@@ -70,6 +70,8 @@ func (o Options) kubeletExtraArgs() (args []string) {
 	if o.KubeletConfig.CPUCFSQuota != nil {
 		args = append(args, fmt.Sprintf("--cpu-cfs-quota=%t", lo.FromPtr(o.KubeletConfig.CPUCFSQuota)))
 	}
+	// Append any extra args from the KubeletConfiguration
+	args = append(args, o.KubeletConfig.ExtraArgs...)
 	return lo.Compact(args)
 }
 

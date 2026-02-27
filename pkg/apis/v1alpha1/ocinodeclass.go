@@ -300,6 +300,11 @@ type KubeletConfiguration struct {
 	// CPUCFSQuota enables CPU CFS quota enforcement for containers that specify CPU limits.
 	// +optional
 	CPUCFSQuota *bool `json:"cpuCFSQuota,omitempty"`
+	// ExtraArgs is a list of additional arguments to pass to the kubelet.
+	// These are appended to the generated kubelet arguments.
+	// Example: ["--image-credential-provider-bin-dir=/usr/local/bin/", "--image-credential-provider-config=/etc/kubernetes/credential-provider-config.yaml"]
+	// +optional
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 // OciNodeClass is the Schema for the OciNodeClass API
