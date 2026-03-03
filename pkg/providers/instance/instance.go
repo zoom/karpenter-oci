@@ -181,7 +181,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 			// for the second, you can request a service limit increase from the Console's Limits, Quotas and Usage page or from the Help menu.
 			if (typed.GetHTTPStatusCode() == 500 && strings.Contains(typed.GetMessage(), "Out of host capacity")) ||
 				(typed.GetHTTPStatusCode() == 400 && strings.Contains(typed.GetMessage(), "service limits were exceeded")) {
-				p.unavailableOfferings.MarkUnavailableForLaunchInstanceErr(ctx, err, capacityType, instanceType.Name, zone)
+				p.unavailableOfferings.MarkUnavailableForLaunchInstanceErr(ctx, err, capacityType, instanceType.Requirements.Get(v1alpha1.LabelInstanceShapeName).Any(), zone)
 				return nil, corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("InsufficientCapacityError: %s", typed.GetMessage()))
 			}
 		}
