@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -71,7 +72,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 	sgsIds := lo.Map[*v1alpha1.SecurityGroup, string](nodeClass.Status.SecurityGroups, func(item *v1alpha1.SecurityGroup, index int) string {
 		return item.Id
 	})
-	instanceType, zone := pickBestInstanceType(nodeClaim, instanceTypes)
+	instanceType, zone, capacityType := pickBestInstanceType(nodeClaim, instanceTypes)
 	ad, ok := lo.Find(options.FromContext(ctx).AvailableDomains, func(item string) bool {
 		return strings.Contains(item, zone)
 	})
@@ -83,6 +84,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		log.FromContext(ctx).V(1).Error(corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available")), "")
 		return nil, corecloudprovider.NewInsufficientCapacityError(fmt.Errorf("no instance types available"))
 	}
+	log.FromContext(ctx).V(1).Info("selected instance type", "instanceType", instanceType.Name, "zone", zone, "capacityType", capacityType)
 	blockDevices := lo.Map[*v1alpha1.VolumeAttributes, core.LaunchAttachVolumeDetails](nodeClass.Spec.BlockDevices,
 		func(item *v1alpha1.VolumeAttributes, index int) core.LaunchAttachVolumeDetails {
 			return core.LaunchAttachIScsiVolumeDetails{
@@ -110,12 +112,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1alpha1.OciNodeClass,
 		return nil, err
 	}
 	metadata["user_data"] = userdata
-	// Determine capacity type based on node requirements
-	capacityType := corev1.CapacityTypeOnDemand
-	nodeReqs := scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...)
-	if nodeReqs.Get(corev1.CapacityTypeLabelKey).Has(v1alpha1.CapacityTypePreemptible) {
-		capacityType = v1alpha1.CapacityTypePreemptible
-	}
+
 	req := core.LaunchInstanceRequest{LaunchInstanceDetails: core.LaunchInstanceDetails{
 		CreateVnicDetails:       &core.CreateVnicDetails{SubnetId: subnet.Id, NsgIds: sgsIds},
 		LaunchVolumeAttachments: blockDevices,
@@ -245,9 +242,9 @@ func removeExcludingChars(sizeLimit int, tags ...map[string]string) map[string]i
 	return res
 }
 
-func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudprovider.InstanceTypes) (*corecloudprovider.InstanceType, string) {
+func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudprovider.InstanceTypes) (*corecloudprovider.InstanceType, string, string) {
 	if len(instanceTypes) == 0 {
-		return nil, ""
+		return nil, "", ""
 	}
 
 	sortedInstanceType := instanceTypes.OrderByPrice(scheduling.NewNodeSelectorRequirementsWithMinValues(nodeClaim.Spec.Requirements...))
@@ -258,14 +255,28 @@ func pickBestInstanceType(nodeClaim *corev1.NodeClaim, instanceTypes corecloudpr
 		return requestedZones.Has(o.Requirements.Get(v1.LabelTopologyZone).Any())
 	})
 	if len(priorityOfferings) == 0 {
-		return nil, ""
+		return nil, "", ""
 	}
 	zonesWithPriority := lo.Map(priorityOfferings, func(o *corecloudprovider.Offering, _ int) string {
 		return o.Requirements.Get(v1.LabelTopologyZone).Any()
 	})
 	// todo balance between different zone
 	mutable.Shuffle(zonesWithPriority)
-	return instanceType, zonesWithPriority[0]
+	selectedZone := zonesWithPriority[0]
+
+	// Find the cheapest available offering in the selected zone to determine capacity type
+	zoneOfferings := lo.Filter(priorityOfferings, func(o *corecloudprovider.Offering, _ int) bool {
+		return o.Requirements.Get(v1.LabelTopologyZone).Any() == selectedZone
+	})
+	// Sort by price to pick cheapest (which respects unavailable cache since we filtered by Available() above)
+	sort.Slice(zoneOfferings, func(i, j int) bool {
+		return zoneOfferings[i].Price < zoneOfferings[j].Price
+	})
+	capacityType := corev1.CapacityTypeOnDemand
+	if len(zoneOfferings) > 0 {
+		capacityType = zoneOfferings[0].Requirements.Get(corev1.CapacityTypeLabelKey).Any()
+	}
+	return instanceType, selectedZone, capacityType
 }
 
 func getIntValFromRequirements(key string, requirements scheduling.Requirements) (int, error) {

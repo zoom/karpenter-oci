@@ -297,4 +297,110 @@ var _ = Describe("InstanceProvider", func() {
 		Expect(err).ToNot(BeNil())
 		Expect(err.Error() == "not enough IPs are available on all subnets").To(BeTrue())
 	})
+	It("should fall back to on-demand when preemptible is marked unavailable", func() {
+		// Override PreemptibleShapes so shape-1 is treated as preemptible-capable
+		ctx = options.ToContext(ctx, test.Options(test.OptionsFields{
+			ClusterName:       utils.String("test-cluster"),
+			AvailableDomains:  []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"},
+			PreemptibleShapes: lo.ToPtr("shape"),
+		}))
+		// Flush instance type cache so offerings are rebuilt with the new options
+		ociEnv.InstanceTypeCache.Flush()
+
+		// Allow both capacity types on the NodeClaim
+		nodeClaim.Spec.Requirements = append(nodeClaim.Spec.Requirements,
+			v1.NodeSelectorRequirementWithMinValues{
+				NodeSelectorRequirement: v1core.NodeSelectorRequirement{
+					Key:      v1.CapacityTypeLabelKey,
+					Operator: v1core.NodeSelectorOpIn,
+					Values:   []string{v1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible},
+				},
+			},
+			v1.NodeSelectorRequirementWithMinValues{
+				NodeSelectorRequirement: v1core.NodeSelectorRequirement{
+					Key:      v1core.LabelTopologyZone,
+					Operator: v1core.NodeSelectorOpIn,
+					Values:   []string{"US-ASHBURN-AD-1", "US-ASHBURN-AD-2", "US-ASHBURN-AD-3"},
+				},
+			},
+		)
+		ExpectApplied(ctx, env.Client, nodeClaim, nodePool, nodeClass)
+
+		// Mark preemptible as unavailable for shape-1 in ALL zones
+		for _, zone := range []string{"US-ASHBURN-AD-1", "US-ASHBURN-AD-2", "US-ASHBURN-AD-3"} {
+			ociEnv.UnavailableOfferingsCache.MarkUnavailable(ctx, "Out of host capacity", "shape-1", zone, v1alpha1.CapacityTypePreemptible)
+		}
+
+		// Get instance types — CreateOfferings will check the unavailable cache,
+		// so preemptible offerings for shape-1 will have Available=false
+		instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Filter to shape-1 only
+		instanceTypes = lo.Filter(instanceTypes, func(i *corecloudprovider.InstanceType, _ int) bool {
+			return i.Name == "shape-1"
+		})
+		Expect(instanceTypes).To(HaveLen(1))
+
+		// Verify shape-1 still has available offerings (on-demand should be available)
+		available := instanceTypes[0].Offerings.Available()
+		Expect(len(available)).To(BeNumerically(">", 0))
+
+		// Create should succeed using on-demand (not preemptible)
+		instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(instance).ToNot(BeNil())
+
+		// Verify the launch request did NOT set PreemptibleInstanceConfig
+		Expect(ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Len()).To(Equal(1))
+		launchInput := ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Pop()
+		Expect(launchInput.PreemptibleInstanceConfig).To(BeNil(), "expected on-demand launch but got preemptible")
+	})
+	It("should use preemptible when it is available and cheapest", func() {
+		// Override PreemptibleShapes so shape-1 is treated as preemptible-capable
+		ctx = options.ToContext(ctx, test.Options(test.OptionsFields{
+			ClusterName:       utils.String("test-cluster"),
+			AvailableDomains:  []string{"JPqd:US-ASHBURN-AD-1", "JPqd:US-ASHBURN-AD-2", "JPqd:US-ASHBURN-AD-3"},
+			PreemptibleShapes: lo.ToPtr("shape"),
+		}))
+		// Flush instance type cache so offerings are rebuilt with the new options
+		ociEnv.InstanceTypeCache.Flush()
+
+		// Allow both capacity types on the NodeClaim
+		nodeClaim.Spec.Requirements = append(nodeClaim.Spec.Requirements,
+			v1.NodeSelectorRequirementWithMinValues{
+				NodeSelectorRequirement: v1core.NodeSelectorRequirement{
+					Key:      v1.CapacityTypeLabelKey,
+					Operator: v1core.NodeSelectorOpIn,
+					Values:   []string{v1.CapacityTypeOnDemand, v1alpha1.CapacityTypePreemptible},
+				},
+			},
+			v1.NodeSelectorRequirementWithMinValues{
+				NodeSelectorRequirement: v1core.NodeSelectorRequirement{
+					Key:      v1core.LabelTopologyZone,
+					Operator: v1core.NodeSelectorOpIn,
+					Values:   []string{"US-ASHBURN-AD-1", "US-ASHBURN-AD-2", "US-ASHBURN-AD-3"},
+				},
+			},
+		)
+		ExpectApplied(ctx, env.Client, nodeClaim, nodePool, nodeClass)
+
+		// Do NOT mark anything unavailable — preemptible should win (50% cheaper)
+		instanceTypes, err := cloudProvider.GetInstanceTypes(ctx, nodePool)
+		Expect(err).ToNot(HaveOccurred())
+
+		instanceTypes = lo.Filter(instanceTypes, func(i *corecloudprovider.InstanceType, _ int) bool {
+			return i.Name == "shape-1"
+		})
+		Expect(instanceTypes).To(HaveLen(1))
+
+		instance, err := ociEnv.InstanceProvider.Create(ctx, nodeClass, nodeClaim, instanceTypes)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(instance).ToNot(BeNil())
+
+		// Verify the launch request DID set PreemptibleInstanceConfig
+		Expect(ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Len()).To(Equal(1))
+		launchInput := ociEnv.CmpCli.LaunchInstanceBehavior.CalledWithInput.Pop()
+		Expect(launchInput.PreemptibleInstanceConfig).ToNot(BeNil(), "expected preemptible launch but got on-demand")
+	})
 })
